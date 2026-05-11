@@ -1,9 +1,14 @@
 import type { Metadata } from "next";
-import { Geist } from "next/font/google";
+import { Tajawal } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
 
-const geist = Geist({ subsets: ["latin"], variable: "--font-geist" });
+const tajawal = Tajawal({
+  subsets: ["arabic", "latin"],
+  weight: ["300", "400", "500", "700", "800", "900"],
+  variable: "--font-tajawal",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "EventFace - معارض الفعاليات الذكية",
@@ -13,8 +18,8 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <ClerkProvider>
-      <html lang="ar" dir="rtl" className={`${geist.variable} h-full antialiased`}>
-        <body className="min-h-full bg-gray-50 text-gray-900">{children}</body>
+      <html lang="ar" dir="rtl" className={`${tajawal.variable} h-full antialiased`}>
+        <body className="min-h-full bg-zinc-50 text-zinc-900 font-sans">{children}</body>
       </html>
     </ClerkProvider>
   );
