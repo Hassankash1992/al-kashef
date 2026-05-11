@@ -1,0 +1,439 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Tenant (الشركة المشتركة) ──────────────────────────────────────────────────
+
+model Tenant {
+  id               String   @id @default(cuid())
+  clerkOrgId       String?  @unique
+  name             String
+  slug             String   @unique
+  logo             String?
+  primaryColor     String   @default("#6366f1")
+  plan             Plan     @default(STARTER)
+  isActive         Boolean  @default(true)
+  notes            String?  // ملاحظات الأدمن الداخلية
+  stripeCustomerId String?
+  storageUsedBytes BigInt   @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  users         TenantUser[]
+  events        Event[]
+  domains       Domain[]
+  integrations  Integration[]
+  storageConfig StorageConfig?
+  subscriptions Subscription[]
+  invoices      Invoice[]
+  adminMessages AdminMessage[]
+
+  @@map("tenants")
+}
+
+// ─── Auth & Users ─────────────────────────────────────────────────────────────
+
+model TenantUser {
+  id          String   @id @default(cuid())
+  tenantId    String
+  clerkUserId String
+  role        UserRole @default(PHOTOGRAPHER)
+  createdAt   DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, clerkUserId])
+  @@map("tenant_users")
+}
+
+// ─── Domains (White-label) ────────────────────────────────────────────────────
+
+model Domain {
+  id           String       @id @default(cuid())
+  tenantId     String
+  domain       String       @unique
+  verified     Boolean      @default(false)
+  status       DomainStatus @default(PENDING)
+  verifyToken  String?      // TXT record value للتحقق
+  lastChecked  DateTime?
+  createdAt    DateTime     @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("domains")
+}
+
+// ─── Storage ──────────────────────────────────────────────────────────────────
+
+model StorageConfig {
+  id        String          @id @default(cuid())
+  tenantId  String          @unique
+  provider  StorageProvider @default(PLATFORM)
+  accessKey String?
+  secretKey String?
+  bucket    String?
+  region    String?
+  endpoint  String?
+  cdnUrl    String?
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("storage_configs")
+}
+
+// ─── Integrations ─────────────────────────────────────────────────────────────
+
+model Integration {
+  id           String          @id @default(cuid())
+  tenantId     String
+  type         IntegrationType
+  accessToken  String?
+  refreshToken String?
+  expiresAt    DateTime?
+  config       Json?
+  connected    Boolean         @default(false)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, type])
+  @@map("integrations")
+}
+
+// ─── Events ───────────────────────────────────────────────────────────────────
+
+model Event {
+  id                String      @id @default(cuid())
+  tenantId          String
+  name              String
+  slug              String
+  type              EventType   @default(OTHER)
+  description       String?
+  coverImage        String?
+  date              DateTime?
+  status            EventStatus @default(DRAFT)
+  password          String?
+  downloadEnabled   Boolean     @default(true)
+  shareEnabled      Boolean     @default(true)
+  faceSearchEnabled Boolean     @default(true)
+  galleryPublic     Boolean     @default(true)
+  linkExpiresAt     DateTime?
+  watermarkEnabled  Boolean     @default(false)
+  driveSourceId     String?
+  driveSyncMode     SyncMode    @default(MANUAL)
+  lastSyncAt        DateTime?
+  qrCodeUrl         String?
+  totalPhotos       Int         @default(0)
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  tenant       Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  photos       Photo[]
+  faceSearches FaceSearch[]
+  jobs         Job[]
+  analytics    AnalyticsEvent[]
+
+  @@unique([tenantId, slug])
+  @@map("events")
+}
+
+// ─── Photos ───────────────────────────────────────────────────────────────────
+
+model Photo {
+  id           String      @id @default(cuid())
+  tenantId     String
+  eventId      String
+  storageKey   String
+  thumbnailKey String?
+  previewKey   String?
+  originalName String?
+  mimeType     String?
+  size         Int?
+  width        Int?
+  height       Int?
+  status       PhotoStatus @default(UPLOADED)
+  faceIndexed  Boolean     @default(false)
+  sourceFileId String?
+  metadata     Json?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  event Event       @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  faces PhotoFace[]
+
+  @@index([tenantId, eventId])
+  @@index([eventId, status])
+  @@map("photos")
+}
+
+model PhotoFace {
+  id          String   @id @default(cuid())
+  photoId     String
+  faceId      String
+  boundingBox Json?
+  confidence  Float?
+  createdAt   DateTime @default(now())
+
+  photo Photo @relation(fields: [photoId], references: [id], onDelete: Cascade)
+
+  @@index([faceId])
+  @@map("photo_faces")
+}
+
+// ─── Face Search ──────────────────────────────────────────────────────────────
+
+model FaceSearch {
+  id             String   @id @default(cuid())
+  tenantId       String
+  eventId        String
+  selfieKey      String?
+  resultPhotoIds String[]
+  matchCount     Int      @default(0)
+  ipAddress      String?
+  createdAt      DateTime @default(now())
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, eventId])
+  @@map("face_searches")
+}
+
+// ─── Jobs ─────────────────────────────────────────────────────────────────────
+
+model Job {
+  id        String    @id @default(cuid())
+  tenantId  String
+  eventId   String?
+  type      JobType
+  status    JobStatus @default(PENDING)
+  payload   Json?
+  result    Json?
+  error     String?
+  attempts  Int       @default(0)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  event Event? @relation(fields: [eventId], references: [id])
+
+  @@index([tenantId, status])
+  @@index([eventId])
+  @@map("jobs")
+}
+
+// ─── Analytics ────────────────────────────────────────────────────────────────
+
+model AnalyticsEvent {
+  id        String   @id @default(cuid())
+  tenantId  String
+  eventId   String
+  type      String
+  metadata  Json?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, eventId, type])
+  @@map("analytics_events")
+}
+
+// ─── Billing ──────────────────────────────────────────────────────────────────
+
+model Subscription {
+  id                    String             @id @default(cuid())
+  tenantId              String
+  plan                  Plan
+  status                SubscriptionStatus @default(ACTIVE)
+  billingCycle          BillingCycle       @default(MONTHLY)
+  amount                Float              @default(0)
+  currency              String             @default("SAR")
+  stripeSubscriptionId  String?
+  moyasarSubscriptionId String?
+  trialEndsAt           DateTime?
+  currentPeriodStart    DateTime           @default(now())
+  currentPeriodEnd      DateTime?
+  cancelledAt           DateTime?
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  invoices Invoice[]
+
+  @@index([tenantId, status])
+  @@map("subscriptions")
+}
+
+model Invoice {
+  id             String        @id @default(cuid())
+  tenantId       String
+  subscriptionId String?
+  amount         Float
+  currency       String        @default("SAR")
+  status         InvoiceStatus @default(PENDING)
+  description    String?
+  stripeId       String?
+  moyasarId      String?
+  paidAt         DateTime?
+  periodStart    DateTime
+  periodEnd      DateTime
+  createdAt      DateTime      @default(now())
+
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  subscription Subscription? @relation(fields: [subscriptionId], references: [id])
+
+  @@index([tenantId, status])
+  @@map("invoices")
+}
+
+// ─── Admin Communications ─────────────────────────────────────────────────────
+
+model AdminMessage {
+  id        String    @id @default(cuid())
+  tenantId  String
+  subject   String
+  body      String
+  sentBy    String    // Clerk userId of the admin
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@map("admin_messages")
+}
+
+// ─── Plan Configuration (قابلة للتعديل من الأدمن) ──────────────────────────────
+
+model PlanConfig {
+  plan                Plan    @id
+  displayName         String
+  maxEvents           Int     @default(3)     // -1 = unlimited
+  maxPhotosPerEvent   Int     @default(500)   // -1 = unlimited
+  maxStorageGB        Float   @default(5)     // -1 = unlimited
+  maxTeamMembers      Int     @default(1)
+  faceSearchEnabled   Boolean @default(false)
+  customDomainEnabled Boolean @default(false)
+  watermarkRemoval    Boolean @default(false)
+  priceMonthly        Float   @default(0)
+  priceYearly         Float   @default(0)
+
+  @@map("plan_configs")
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+enum Plan {
+  STARTER
+  PRO
+  AGENCY
+}
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+  EXPIRED
+}
+
+enum BillingCycle {
+  MONTHLY
+  YEARLY
+}
+
+enum InvoiceStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum UserRole {
+  OWNER
+  ADMIN
+  PHOTOGRAPHER
+  EDITOR
+  VIEWER
+  SUPPORT
+}
+
+enum DomainStatus {
+  PENDING
+  VERIFYING
+  VERIFIED
+  ERROR
+}
+
+enum StorageProvider {
+  PLATFORM
+  AWS_S3
+  CLOUDFLARE_R2
+  GOOGLE_DRIVE
+}
+
+enum IntegrationType {
+  GOOGLE_DRIVE
+  AWS_S3
+  CLOUDFLARE_R2
+  WHATSAPP
+  TELEGRAM
+  EMAIL_SMTP
+  SENDGRID
+}
+
+enum EventType {
+  WEDDING
+  CONFERENCE
+  GRADUATION
+  CORPORATE
+  BIRTHDAY
+  OTHER
+}
+
+enum EventStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+enum PhotoStatus {
+  UPLOADED
+  PROCESSING
+  PROCESSED
+  FACE_INDEXED
+  FAILED
+  DELETED
+}
+
+enum SyncMode {
+  MANUAL
+  HOURLY
+  DAILY
+  DISABLED
+}
+
+enum JobType {
+  IMPORT_FROM_DRIVE
+  UPLOAD_TO_STORAGE
+  GENERATE_THUMBNAILS
+  INDEX_FACES
+  SYNC_DRIVE_FOLDER
+  SEND_WHATSAPP
+  GENERATE_ZIP
+}
+
+enum JobStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  RETRYING
+}
