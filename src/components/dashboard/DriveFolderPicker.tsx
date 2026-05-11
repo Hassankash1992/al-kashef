@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Folder, Image, Loader2, Search, ChevronLeft, X, Download } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Folder, Image as ImageIcon, Loader2, Search, ChevronLeft, X, Download } from "lucide-react";
 
 interface DriveFolder {
   id: string;
@@ -34,9 +33,7 @@ export default function DriveFolderPicker({ eventId, onImportStarted }: Props) {
   const [syncMode, setSyncMode] = useState(false);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    loadFolders();
-  }, []);
+  useEffect(() => { loadFolders(); }, []);
 
   async function loadFolders() {
     setLoadingFolders(true);
@@ -94,19 +91,19 @@ export default function DriveFolderPicker({ eventId, onImportStarted }: Props) {
 
   if (loadingFolders) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-6 h-6 animate-spin text-indigo-500" />
-        <span className="text-sm text-gray-500 mr-3">جاري تحميل مجلداتك...</span>
+      <div className="flex items-center justify-center py-12 gap-3">
+        <Loader2 className="w-5 h-5 animate-spin text-amber-600" />
+        <span className="text-sm text-zinc-600 font-medium">جاري تحميل مجلداتك...</span>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-600">
-        <p className="font-medium mb-1">حدث خطأ</p>
-        <p>{error}</p>
-        <button onClick={loadFolders} className="mt-2 text-xs text-red-700 underline">
+      <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-700">
+        <p className="font-bold mb-1">حدث خطأ</p>
+        <p className="mb-2">{error}</p>
+        <button onClick={loadFolders} className="text-xs bg-red-100 hover:bg-red-200 px-3 py-1.5 rounded-lg font-bold transition-colors">
           إعادة المحاولة
         </button>
       </div>
@@ -118,19 +115,19 @@ export default function DriveFolderPicker({ eventId, onImportStarted }: Props) {
       {!selectedFolder ? (
         <>
           <div className="relative">
-            <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
             <input
               type="text"
               placeholder="ابحث عن مجلد..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pr-9 pl-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full bg-white text-zinc-900 placeholder:text-zinc-400 pr-9 pl-4 py-2.5 border-2 border-zinc-200 rounded-xl text-sm focus:outline-none focus:border-amber-400 focus:ring-4 focus:ring-amber-100 transition-all"
             />
           </div>
 
-          <div className="border border-gray-100 rounded-xl overflow-hidden max-h-72 overflow-y-auto">
+          <div className="border border-zinc-200 rounded-xl overflow-hidden max-h-72 overflow-y-auto">
             {filteredFolders.length === 0 ? (
-              <div className="py-8 text-center text-gray-400 text-sm">
+              <div className="py-8 text-center text-zinc-500 text-sm">
                 {searchQuery ? "لا توجد نتائج" : "لا توجد مجلدات في Drive"}
               </div>
             ) : (
@@ -138,11 +135,11 @@ export default function DriveFolderPicker({ eventId, onImportStarted }: Props) {
                 <button
                   key={folder.id}
                   onClick={() => selectFolder(folder)}
-                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-indigo-50 transition-colors border-b border-gray-50 last:border-0 text-right"
+                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-amber-50/50 transition-colors border-b border-zinc-100 last:border-0 text-right group"
                 >
-                  <Folder className="w-5 h-5 text-yellow-500 flex-shrink-0" />
-                  <span className="text-sm text-gray-800 flex-1">{folder.name}</span>
-                  <ChevronLeft className="w-4 h-4 text-gray-300" />
+                  <Folder className="w-5 h-5 text-amber-600 shrink-0" />
+                  <span className="text-sm text-zinc-900 flex-1 font-medium truncate">{folder.name}</span>
+                  <ChevronLeft className="w-4 h-4 text-zinc-300 group-hover:text-amber-500" />
                 </button>
               ))
             )}
@@ -151,17 +148,17 @@ export default function DriveFolderPicker({ eventId, onImportStarted }: Props) {
       ) : (
         <div className="space-y-4">
           <div className="flex items-center gap-3">
-            <button onClick={() => setSelectedFolder(null)} className="text-gray-400 hover:text-gray-600">
-              <X className="w-4 h-4" />
+            <button onClick={() => setSelectedFolder(null)} className="w-7 h-7 bg-zinc-100 hover:bg-zinc-200 rounded-lg flex items-center justify-center text-zinc-600 transition-colors">
+              <X className="w-3.5 h-3.5" />
             </button>
-            <div className="flex items-center gap-2">
-              <Folder className="w-5 h-5 text-yellow-500" />
-              <span className="font-semibold text-gray-800">{selectedFolder.name}</span>
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              <Folder className="w-5 h-5 text-amber-600 shrink-0" />
+              <span className="font-bold text-zinc-900 truncate">{selectedFolder.name}</span>
             </div>
           </div>
 
           {loadingFiles ? (
-            <div className="flex items-center gap-2 text-sm text-gray-500 py-4">
+            <div className="flex items-center gap-2 text-sm text-zinc-600 py-4 font-medium">
               <Loader2 className="w-4 h-4 animate-spin" />
               جاري تحميل الصور...
             </div>
@@ -170,12 +167,12 @@ export default function DriveFolderPicker({ eventId, onImportStarted }: Props) {
               {previewFiles.length > 0 && (
                 <div className="grid grid-cols-4 gap-2">
                   {previewFiles.map((file) => (
-                    <div key={file.id} className="aspect-square rounded-lg overflow-hidden bg-gray-100">
+                    <div key={file.id} className="aspect-square rounded-lg overflow-hidden bg-zinc-100 border border-zinc-200">
                       {file.thumbnailLink ? (
                         <img src={file.thumbnailLink} alt={file.name} className="w-full h-full object-cover" />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center">
-                          <Image className="w-6 h-6 text-gray-400" />
+                          <ImageIcon className="w-6 h-6 text-zinc-400" />
                         </div>
                       )}
                     </div>
@@ -183,28 +180,28 @@ export default function DriveFolderPicker({ eventId, onImportStarted }: Props) {
                 </div>
               )}
 
-              <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-3 text-sm text-indigo-700">
-                <p className="font-medium">{previewFiles.length}+ صورة في هذا المجلد</p>
-                <p className="text-xs text-indigo-500 mt-0.5">سيتم استيراد جميع الصور ومعالجتها تلقائياً</p>
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-sm">
+                <p className="font-bold text-amber-900">{previewFiles.length}+ صورة في هذا المجلد</p>
+                <p className="text-xs text-amber-700 mt-0.5">سيتم استيراد جميع الصور ومعالجتها تلقائياً</p>
               </div>
 
-              <label className="flex items-center gap-2 cursor-pointer">
+              <label className="flex items-center gap-3 cursor-pointer p-3 rounded-xl hover:bg-zinc-50 transition-colors">
                 <input type="checkbox" checked={syncMode}
                   onChange={(e) => setSyncMode(e.target.checked)}
-                  className="rounded border-gray-300 text-indigo-600" />
-                <div>
-                  <p className="text-sm font-medium text-gray-700">وضع المزامنة</p>
-                  <p className="text-xs text-gray-400">استيراد الصور الجديدة فقط (تجاهل المستوردة سابقاً)</p>
+                  className="rounded border-zinc-300 text-amber-600 focus:ring-amber-400 w-4 h-4" />
+                <div className="flex-1">
+                  <p className="text-sm font-bold text-zinc-900">وضع المزامنة</p>
+                  <p className="text-xs text-zinc-500 mt-0.5 leading-relaxed">استيراد الصور الجديدة فقط (تجاهل المستوردة سابقاً)</p>
                 </div>
               </label>
 
               <button
                 onClick={startImport}
                 disabled={importing}
-                className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-3 rounded-xl text-sm transition-colors disabled:opacity-50"
+                className="w-full inline-flex items-center justify-center gap-2 bg-gradient-to-br from-amber-300 via-yellow-500 to-amber-700 hover:from-amber-200 hover:via-yellow-400 hover:to-amber-600 disabled:opacity-50 text-black font-bold py-3 rounded-xl text-sm transition-all shadow-lg shadow-amber-500/20"
               >
                 {importing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-                {importing ? "جاري بدء الاستيراد..." : `ابدأ استيراد الصور من "${selectedFolder.name}"`}
+                {importing ? "جاري بدء الاستيراد..." : `ابدأ استيراد "${selectedFolder.name}"`}
               </button>
             </>
           )}
