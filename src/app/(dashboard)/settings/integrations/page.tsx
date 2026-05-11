@@ -24,14 +24,17 @@ export default async function IntegrationsPage() {
     : null;
 
   return (
-    <div className="p-8 max-w-3xl mx-auto" dir="rtl">
+    <div className="p-6 sm:p-8 max-w-3xl mx-auto" dir="rtl">
       <div className="flex items-center gap-3 mb-8">
-        <Link href="/settings" className="text-gray-400 hover:text-gray-600 transition-colors">
-          <ArrowRight className="w-5 h-5" />
+        <Link
+          href="/settings"
+          className="w-10 h-10 bg-white border border-zinc-200 rounded-xl flex items-center justify-center text-zinc-600 hover:bg-zinc-50 hover:text-amber-600 transition-colors shrink-0"
+        >
+          <ArrowRight className="w-4 h-4" />
         </Link>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">التكاملات</h1>
-          <p className="text-gray-500 text-sm">اربط خدماتك الخاصة بالمنصة</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-zinc-900 tracking-tight">التكاملات</h1>
+          <p className="text-zinc-500 text-sm mt-0.5">اربط خدماتك الخاصة بالمنصة</p>
         </div>
       </div>
 
