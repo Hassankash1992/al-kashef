@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 const isPublicRoute = createRouteMatcher([
+  "/",                   // الصفحة الرئيسية (Landing)
   "/sign-in(.*)",
   "/sign-up(.*)",
   "/g/(.*)",             // المعرض العام
