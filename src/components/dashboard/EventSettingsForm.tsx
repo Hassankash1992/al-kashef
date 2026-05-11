@@ -2,8 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { slugify } from "@/lib/utils";
-import { Trash2 } from "lucide-react";
+import { Trash2, Loader2, Check } from "lucide-react";
 
 const EVENT_TYPES = [
   { value: "WEDDING", label: "زواج" },
@@ -79,7 +78,7 @@ export default function EventSettingsForm({ event }: { event: EventData }) {
   }
 
   async function handleDelete() {
-    if (!confirm("هل أنت متأكد من حذف هذه الفعالية وجميع صورها؟ لا يمكن التراجع عن هذا الإجراء.")) return;
+    if (!confirm("هل أنت متأكد من حذف هذه الفعالية وجميع صورها؟ لا يمكن التراجع.")) return;
     setLoading(true);
     try {
       await fetch(`/api/events/${event.id}`, { method: "DELETE" });
@@ -89,98 +88,158 @@ export default function EventSettingsForm({ event }: { event: EventData }) {
     }
   }
 
-  return (
-    <form onSubmit={handleSave} className="space-y-6">
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-5">
-        <h2 className="font-semibold text-gray-900">معلومات الفعالية</h2>
+  const inputCls =
+    "w-full bg-white text-zinc-900 placeholder:text-zinc-400 border-2 border-zinc-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-amber-400 focus:ring-4 focus:ring-amber-100 transition-all";
 
-        <div className="space-y-1.5">
-          <label className="text-sm font-medium text-gray-700">اسم الفعالية</label>
+  return (
+    <form onSubmit={handleSave} className="space-y-5">
+      {/* Event info */}
+      <div className="bg-white rounded-2xl border border-zinc-100 shadow-sm p-5 sm:p-6 space-y-5">
+        <h2 className="font-bold text-zinc-900 text-base">معلومات الفعالية</h2>
+
+        <Field label="اسم الفعالية">
           <input
             type="text" required value={form.name}
             onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-            className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className={inputCls}
           />
-        </div>
+        </Field>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium text-gray-700">نوع الفعالية</label>
-            <select value={form.type} onChange={(e) => setForm((f) => ({ ...f, type: e.target.value }))}
-              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Field label="نوع الفعالية">
+            <select
+              value={form.type}
+              onChange={(e) => setForm((f) => ({ ...f, type: e.target.value }))}
+              className={inputCls + " appearance-none cursor-pointer"}
+            >
               {EVENT_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
             </select>
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium text-gray-700">الحالة</label>
-            <select value={form.status} onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}
-              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
+          </Field>
+          <Field label="الحالة">
+            <select
+              value={form.status}
+              onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}
+              className={inputCls + " appearance-none cursor-pointer"}
+            >
               {EVENT_STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
             </select>
-          </div>
+          </Field>
         </div>
 
-        <div className="space-y-1.5">
-          <label className="text-sm font-medium text-gray-700">تاريخ الفعالية</label>
-          <input type="date" value={form.date} dir="ltr"
+        <Field label="تاريخ الفعالية">
+          <input
+            type="date" value={form.date} dir="ltr"
             onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))}
-            className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className={inputCls}
           />
-        </div>
+        </Field>
 
-        <div className="space-y-1.5">
-          <label className="text-sm font-medium text-gray-700">وصف اختياري</label>
-          <textarea rows={3} value={form.description}
+        <Field label="وصف اختياري">
+          <textarea
+            rows={3} value={form.description}
             onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-            className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+            className={inputCls + " resize-none"}
           />
-        </div>
+        </Field>
       </div>
 
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-4">
-        <h2 className="font-semibold text-gray-900">الخصوصية والتحكم</h2>
+      {/* Privacy */}
+      <div className="bg-white rounded-2xl border border-zinc-100 shadow-sm p-5 sm:p-6 space-y-4">
+        <h2 className="font-bold text-zinc-900 text-base">الخصوصية والتحكم</h2>
 
         {[
-          { key: "faceSearchEnabled", label: "تفعيل البحث بالوجه", desc: "يسمح للضيوف بالبحث عن صورهم" },
-          { key: "galleryPublic", label: "معرض عام", desc: "يسمح بتصفح جميع الصور" },
+          { key: "faceSearchEnabled", label: "تفعيل البحث بالوجه", desc: "يسمح للضيوف بالبحث عن صورهم بالسيلفي" },
+          { key: "galleryPublic", label: "معرض عام", desc: "يسمح للضيوف بتصفح جميع الصور" },
           { key: "downloadEnabled", label: "السماح بالتحميل", desc: "يسمح للضيوف بتحميل الصور" },
-          { key: "watermarkEnabled", label: "Watermark", desc: "إضافة علامة مائية على الصور" },
+          { key: "watermarkEnabled", label: "علامة مائية", desc: "إضافة علامة مائية على الصور" },
         ].map(({ key, label, desc }) => (
-          <label key={key} className="flex items-center justify-between gap-4 cursor-pointer">
-            <div>
-              <p className="text-sm font-medium text-gray-700">{label}</p>
-              <p className="text-xs text-gray-400">{desc}</p>
-            </div>
-            <button type="button" onClick={() => setForm((f) => ({ ...f, [key]: !f[key as keyof typeof f] }))}
-              className={`relative w-11 h-6 rounded-full transition-colors flex-shrink-0 ${form[key as keyof typeof form] ? "bg-indigo-600" : "bg-gray-200"}`}>
-              <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-all ${form[key as keyof typeof form] ? "right-0.5" : "left-0.5"}`} />
-            </button>
-          </label>
+          <Toggle
+            key={key}
+            label={label}
+            desc={desc}
+            checked={form[key as keyof typeof form] as boolean}
+            onChange={(v) => setForm((f) => ({ ...f, [key]: v }))}
+          />
         ))}
 
-        <div className="space-y-1.5 pt-2">
-          <label className="text-sm font-medium text-gray-700">كلمة مرور (اختياري)</label>
-          <input type="text" value={form.password} dir="ltr" placeholder="اتركه فارغاً لعدم الحماية"
+        <Field label="كلمة مرور (اختياري)" hint="اتركها فارغة إذا لا تريد حماية">
+          <input
+            type="text" value={form.password} dir="ltr" placeholder="••••••••"
             onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
-            className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className={inputCls}
           />
-        </div>
+        </Field>
       </div>
 
-      {error && <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-600">{error}</div>}
-      {success && <div className="bg-green-50 border border-green-200 rounded-xl p-3 text-sm text-green-600">تم حفظ الإعدادات بنجاح</div>}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-700 font-medium">
+          {error}
+        </div>
+      )}
+      {success && (
+        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-sm text-emerald-700 font-medium flex items-center gap-2">
+          <Check className="w-4 h-4" /> تم حفظ الإعدادات بنجاح
+        </div>
+      )}
 
-      <div className="flex gap-3">
-        <button type="submit" disabled={saving}
-          className="flex-1 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-semibold py-3 rounded-xl transition-colors">
-          {saving ? "جاري الحفظ..." : "حفظ الإعدادات"}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <button
+          type="submit" disabled={saving}
+          className="flex-1 inline-flex items-center justify-center gap-2 bg-gradient-to-br from-amber-300 via-yellow-500 to-amber-700 hover:from-amber-200 hover:via-yellow-400 hover:to-amber-600 disabled:opacity-50 text-black font-bold py-3 rounded-xl transition-all shadow-lg shadow-amber-500/20"
+        >
+          {saving ? <><Loader2 className="w-4 h-4 animate-spin" /> جاري الحفظ...</> : "حفظ الإعدادات"}
         </button>
-        <button type="button" onClick={handleDelete} disabled={loading}
-          className="flex items-center gap-2 px-4 py-3 bg-red-50 hover:bg-red-100 text-red-600 font-medium rounded-xl transition-colors text-sm disabled:opacity-50">
+        <button
+          type="button" onClick={handleDelete} disabled={loading}
+          className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 font-semibold rounded-xl transition-colors text-sm disabled:opacity-50"
+        >
           <Trash2 className="w-4 h-4" />
-          حذف
+          حذف الفعالية
         </button>
       </div>
     </form>
+  );
+}
+
+function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-1.5">
+      <label className="text-sm font-semibold text-zinc-800 block">{label}</label>
+      {children}
+      {hint && <p className="text-xs text-zinc-500">{hint}</p>}
+    </div>
+  );
+}
+
+function Toggle({
+  label, desc, checked, onChange,
+}: {
+  label: string;
+  desc: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <label className="flex items-center justify-between gap-4 cursor-pointer py-1">
+      <div className="min-w-0">
+        <p className="text-sm font-semibold text-zinc-900">{label}</p>
+        <p className="text-xs text-zinc-500 mt-0.5 leading-relaxed">{desc}</p>
+      </div>
+      <button
+        type="button"
+        onClick={() => onChange(!checked)}
+        className={`relative w-12 h-7 rounded-full transition-colors shrink-0 ${
+          checked
+            ? "bg-gradient-to-l from-amber-300 via-yellow-500 to-amber-700"
+            : "bg-zinc-300"
+        }`}
+      >
+        <span
+          className={`absolute top-0.5 w-6 h-6 bg-white rounded-full shadow-md transition-all ${
+            checked ? "right-0.5" : "left-0.5"
+          }`}
+        />
+      </button>
+    </label>
   );
 }

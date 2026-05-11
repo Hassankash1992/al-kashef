@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
-import { Upload, X, CheckCircle, AlertCircle, Loader2 } from "lucide-react";
+import { Upload, CheckCircle, AlertCircle, Loader2 } from "lucide-react";
 import { formatBytes } from "@/lib/utils";
 
 interface UploadFile {
@@ -38,7 +38,6 @@ export default function PhotoUploader({ eventId, tenantId }: Props) {
   async function uploadFile(uf: UploadFile) {
     setFiles((prev) => prev.map((f) => f.id === uf.id ? { ...f, status: "uploading" } : f));
     try {
-      // 1. Get presigned URL from our API
       const res = await fetch("/api/storage/presign", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -49,10 +48,12 @@ export default function PhotoUploader({ eventId, tenantId }: Props) {
           size: uf.file.size,
         }),
       });
-      if (!res.ok) throw new Error("فشل الحصول على رابط الرفع");
-      const { presignedUrl, photoId, storageKey } = await res.json();
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        throw new Error(errBody.error || "فشل الحصول على رابط الرفع");
+      }
+      const { presignedUrl, photoId } = await res.json();
 
-      // 2. Upload directly to R2
       const xhr = new XMLHttpRequest();
       xhr.open("PUT", presignedUrl);
       xhr.setRequestHeader("Content-Type", uf.file.type);
@@ -68,7 +69,6 @@ export default function PhotoUploader({ eventId, tenantId }: Props) {
         xhr.send(uf.file);
       });
 
-      // 3. Confirm upload and trigger processing
       await fetch("/api/photos/upload", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -98,8 +98,10 @@ export default function PhotoUploader({ eventId, tenantId }: Props) {
         onDragLeave={() => setIsDragging(false)}
         onDrop={onDrop}
         onClick={() => inputRef.current?.click()}
-        className={`border-2 border-dashed rounded-2xl p-10 text-center cursor-pointer transition-all ${
-          isDragging ? "border-indigo-400 bg-indigo-50" : "border-gray-200 hover:border-indigo-300 hover:bg-gray-50"
+        className={`relative border-2 border-dashed rounded-2xl p-8 sm:p-12 text-center cursor-pointer transition-all overflow-hidden group ${
+          isDragging
+            ? "border-amber-400 bg-amber-50"
+            : "border-zinc-300 bg-white hover:border-amber-400 hover:bg-amber-50/30"
         }`}
       >
         <input
@@ -110,29 +112,37 @@ export default function PhotoUploader({ eventId, tenantId }: Props) {
           className="hidden"
           onChange={(e) => addFiles(e.target.files)}
         />
-        <Upload className={`w-10 h-10 mx-auto mb-3 ${isDragging ? "text-indigo-500" : "text-gray-300"}`} />
-        <p className="font-semibold text-gray-700 mb-1">اسحب وأفلت الصور هنا</p>
-        <p className="text-sm text-gray-400">أو اضغط لاختيار الصور من جهازك</p>
-        <p className="text-xs text-gray-300 mt-2">JPG, PNG, WEBP — حتى 20MB لكل صورة</p>
+        <div className={`inline-flex w-14 h-14 sm:w-16 sm:h-16 rounded-2xl items-center justify-center mb-4 transition-all ${
+          isDragging
+            ? "bg-gradient-to-br from-amber-300 via-yellow-500 to-amber-700 shadow-lg shadow-amber-500/30"
+            : "bg-gradient-to-br from-amber-100 to-amber-50 border border-amber-200 group-hover:from-amber-200 group-hover:to-amber-100"
+        }`}>
+          <Upload className={`w-6 h-6 sm:w-7 sm:h-7 ${isDragging ? "text-black" : "text-amber-600"}`} strokeWidth={2.5} />
+        </div>
+        <p className="font-bold text-zinc-900 text-base sm:text-lg mb-1">اسحب وأفلت الصور هنا</p>
+        <p className="text-sm text-zinc-500">أو اضغط لاختيار الصور من جهازك</p>
+        <p className="text-xs text-zinc-400 mt-3">JPG، PNG، WEBP — حتى 20MB لكل صورة</p>
       </div>
 
       {files.length > 0 && (
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="flex items-center justify-between px-5 py-3 border-b border-gray-50">
-            <p className="text-sm font-medium text-gray-700">
-              {files.length} ملف — {done} مكتمل {uploading > 0 && `— ${uploading} جاري الرفع`} {errors > 0 && `— ${errors} فشل`}
+        <div className="bg-white rounded-2xl border border-zinc-100 shadow-sm overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-3 border-b border-zinc-100 flex-wrap gap-2">
+            <p className="text-sm font-semibold text-zinc-800">
+              {files.length} ملف — <span className="text-emerald-700">{done} مكتمل</span>
+              {uploading > 0 && <span className="text-amber-700"> · {uploading} جارٍ</span>}
+              {errors > 0 && <span className="text-red-700"> · {errors} فشل</span>}
             </p>
             <button
               onClick={() => setFiles([])}
-              className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
+              className="text-xs text-zinc-500 hover:text-zinc-800 font-medium transition-colors"
             >
               مسح القائمة
             </button>
           </div>
-          <div className="divide-y divide-gray-50 max-h-80 overflow-y-auto">
+          <div className="divide-y divide-zinc-50 max-h-80 overflow-y-auto">
             {files.map((f) => (
               <div key={f.id} className="flex items-center gap-3 px-5 py-3">
-                <div className="w-8 h-8 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
+                <div className="w-10 h-10 rounded-lg overflow-hidden bg-zinc-100 shrink-0">
                   <img
                     src={URL.createObjectURL(f.file)}
                     alt={f.file.name}
@@ -140,23 +150,23 @@ export default function PhotoUploader({ eventId, tenantId }: Props) {
                   />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm text-gray-700 truncate">{f.file.name}</p>
-                  <p className="text-xs text-gray-400">{formatBytes(f.file.size)}</p>
+                  <p className="text-sm text-zinc-900 truncate font-medium">{f.file.name}</p>
+                  <p className="text-xs text-zinc-500">{formatBytes(f.file.size)}</p>
                   {f.status === "uploading" && (
-                    <div className="mt-1 h-1 bg-gray-100 rounded-full overflow-hidden">
+                    <div className="mt-1.5 h-1.5 bg-zinc-100 rounded-full overflow-hidden">
                       <div
-                        className="h-full bg-indigo-500 rounded-full transition-all"
+                        className="h-full bg-gradient-to-l from-amber-300 via-yellow-500 to-amber-700 rounded-full transition-all"
                         style={{ width: `${f.progress}%` }}
                       />
                     </div>
                   )}
-                  {f.status === "error" && <p className="text-xs text-red-500 mt-0.5">{f.error}</p>}
+                  {f.status === "error" && <p className="text-xs text-red-600 mt-0.5 font-medium">{f.error}</p>}
                 </div>
-                <div className="flex-shrink-0">
-                  {f.status === "done" && <CheckCircle className="w-5 h-5 text-green-500" />}
+                <div className="shrink-0">
+                  {f.status === "done" && <CheckCircle className="w-5 h-5 text-emerald-500" />}
                   {f.status === "error" && <AlertCircle className="w-5 h-5 text-red-500" />}
-                  {f.status === "uploading" && <Loader2 className="w-5 h-5 text-indigo-500 animate-spin" />}
-                  {f.status === "pending" && <div className="w-5 h-5 rounded-full border-2 border-gray-200" />}
+                  {f.status === "uploading" && <Loader2 className="w-5 h-5 text-amber-500 animate-spin" />}
+                  {f.status === "pending" && <div className="w-5 h-5 rounded-full border-2 border-zinc-200" />}
                 </div>
               </div>
             ))}

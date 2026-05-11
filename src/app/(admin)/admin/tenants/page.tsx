@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import Link from "next/link";
-import { CheckCircle, XCircle, Search, Plus } from "lucide-react";
+import { CheckCircle, XCircle, Search, AlertTriangle } from "lucide-react";
 import { PLAN_BADGE_COLOR, formatStorage } from "@/lib/plans";
 
 interface Props {
@@ -51,39 +51,37 @@ export default async function AdminTenantsPage({ searchParams }: Props) {
   }
 
   return (
-    <div className="p-8" dir="rtl">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">المشتركون</h1>
-          <p className="text-gray-500 text-sm">{total} مشترك إجمالاً</p>
-        </div>
+    <div className="p-6 sm:p-8 max-w-7xl mx-auto" dir="rtl">
+      <div className="mb-6">
+        <h1 className="text-2xl sm:text-3xl font-bold text-zinc-900 tracking-tight">المشتركون</h1>
+        <p className="text-zinc-500 text-sm mt-1">{total} مشترك إجمالاً</p>
       </div>
 
-      {/* فلاتر */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-6 flex flex-wrap gap-3">
-        <div className="flex-1 min-w-48 relative">
-          <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+      {/* Filters */}
+      <div className="bg-white rounded-2xl border border-zinc-100 shadow-sm p-4 mb-6 flex flex-wrap gap-3">
+        <div className="flex-1 min-w-[200px] relative">
+          <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
           <form>
             <input
               name="q"
               defaultValue={q}
               placeholder="ابحث بالاسم أو الـ slug..."
-              className="w-full border border-gray-200 rounded-xl pr-9 pl-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+              className="w-full bg-white text-zinc-900 placeholder:text-zinc-400 border-2 border-zinc-200 rounded-xl pr-9 pl-3 py-2.5 text-sm focus:outline-none focus:border-amber-400 focus:ring-4 focus:ring-amber-100 transition-all"
             />
             <input type="hidden" name="plan" value={plan} />
             <input type="hidden" name="status" value={status} />
           </form>
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           {["", "STARTER", "PRO", "AGENCY"].map((p) => (
             <Link
               key={p}
               href={buildUrl({ plan: p, page: "1" })}
-              className={`px-3 py-2 rounded-xl text-xs font-medium transition-colors ${
+              className={`px-3 py-2 rounded-xl text-xs font-bold transition-colors ${
                 plan === p
-                  ? "bg-indigo-600 text-white"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  ? "bg-gradient-to-br from-amber-300 via-yellow-500 to-amber-700 text-black shadow-md shadow-amber-500/20"
+                  : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
               }`}
             >
               {p === "" ? "الكل" : p === "STARTER" ? "مبتدئ" : p === "PRO" ? "احترافي" : "وكالة"}
@@ -91,19 +89,19 @@ export default async function AdminTenantsPage({ searchParams }: Props) {
           ))}
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           {[
-            { val: "", label: "الكل" },
+            { val: "", label: "الجميع" },
             { val: "active", label: "نشط" },
             { val: "inactive", label: "موقوف" },
           ].map(({ val, label }) => (
             <Link
               key={val}
               href={buildUrl({ status: val, page: "1" })}
-              className={`px-3 py-2 rounded-xl text-xs font-medium transition-colors ${
+              className={`px-3 py-2 rounded-xl text-xs font-bold transition-colors ${
                 status === val
-                  ? "bg-gray-900 text-white"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  ? "bg-zinc-900 text-amber-400"
+                  : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
               }`}
             >
               {label}
@@ -112,101 +110,109 @@ export default async function AdminTenantsPage({ searchParams }: Props) {
         </div>
       </div>
 
-      {/* الجدول */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50 text-gray-500 text-xs">
-            <tr>
-              <th className="text-right px-4 py-3 font-medium">الشركة</th>
-              <th className="text-right px-4 py-3 font-medium">الباقة</th>
-              <th className="text-right px-4 py-3 font-medium">الاشتراك</th>
-              <th className="text-right px-4 py-3 font-medium">الفعاليات</th>
-              <th className="text-right px-4 py-3 font-medium">التخزين</th>
-              <th className="text-right px-4 py-3 font-medium">الحالة</th>
-              <th className="text-right px-4 py-3 font-medium">تاريخ التسجيل</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-50">
-            {tenants.map((t) => {
-              const sub = t.subscriptions[0];
-              const isExpiringSoon =
-                sub?.currentPeriodEnd &&
-                new Date(sub.currentPeriodEnd) < new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+      {/* Table */}
+      <div className="bg-white rounded-2xl border border-zinc-100 shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-zinc-50 text-zinc-600 text-xs">
+              <tr>
+                <th className="text-right px-4 py-3 font-bold">الشركة</th>
+                <th className="text-right px-4 py-3 font-bold">الباقة</th>
+                <th className="text-right px-4 py-3 font-bold">الاشتراك</th>
+                <th className="text-right px-4 py-3 font-bold">الفعاليات</th>
+                <th className="text-right px-4 py-3 font-bold">التخزين</th>
+                <th className="text-right px-4 py-3 font-bold">الحالة</th>
+                <th className="text-right px-4 py-3 font-bold">التسجيل</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-zinc-50">
+              {tenants.map((t) => {
+                const sub = t.subscriptions[0];
+                const isExpiringSoon =
+                  sub?.currentPeriodEnd &&
+                  new Date(sub.currentPeriodEnd) < new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
-              return (
-                <tr key={t.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-4 py-3">
-                    <Link href={`/admin/tenants/${t.id}`} className="flex items-center gap-2 group">
-                      <div className="w-7 h-7 rounded-lg bg-indigo-100 text-indigo-700 font-bold text-xs flex items-center justify-center">
-                        {t.name[0]}
-                      </div>
-                      <div>
-                        <p className="font-medium text-gray-800 group-hover:text-indigo-600 transition-colors">
-                          {t.name}
-                        </p>
-                        <p className="text-gray-400 text-xs">{t.slug}</p>
-                      </div>
-                    </Link>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${PLAN_BADGE_COLOR[t.plan as keyof typeof PLAN_BADGE_COLOR]}`}>
-                      {t.plan}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    {sub ? (
-                      <div>
-                        <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${
-                          sub.status === "ACTIVE" ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"
-                        }`}>
-                          {sub.status}
-                        </span>
-                        {sub.currentPeriodEnd && (
-                          <p className={`text-xs mt-0.5 ${isExpiringSoon ? "text-red-500 font-medium" : "text-gray-400"}`}>
-                            {isExpiringSoon ? "⚠ " : ""}
-                            {new Date(sub.currentPeriodEnd).toLocaleDateString("ar-SA")}
-                          </p>
-                        )}
-                        {sub.amount > 0 && (
-                          <p className="text-xs text-gray-400">{sub.amount} ر.س</p>
-                        )}
-                      </div>
-                    ) : (
-                      <span className="text-xs text-gray-300">—</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-gray-600">{t._count.events}</td>
-                  <td className="px-4 py-3 text-gray-500 text-xs">{formatStorage(t.storageUsedBytes)}</td>
-                  <td className="px-4 py-3">
-                    {t.isActive
-                      ? <CheckCircle className="w-4 h-4 text-green-400" />
-                      : <XCircle className="w-4 h-4 text-red-400" />}
-                  </td>
-                  <td className="px-4 py-3 text-gray-400 text-xs">
-                    {new Date(t.createdAt).toLocaleDateString("ar-SA")}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+                return (
+                  <tr key={t.id} className="hover:bg-amber-50/30 transition-colors">
+                    <td className="px-4 py-3">
+                      <Link href={`/admin/tenants/${t.id}`} className="flex items-center gap-2.5 group">
+                        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-100 to-amber-50 border border-amber-200 text-amber-700 font-bold text-sm flex items-center justify-center shrink-0">
+                          {t.name[0]}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-bold text-zinc-900 group-hover:text-amber-700 transition-colors truncate">{t.name}</p>
+                          <p className="text-zinc-500 text-xs truncate">@{t.slug}</p>
+                        </div>
+                      </Link>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-bold border ${PLAN_BADGE_COLOR[t.plan as keyof typeof PLAN_BADGE_COLOR]}`}>
+                        {t.plan}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      {sub ? (
+                        <div>
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-bold border ${
+                            sub.status === "ACTIVE"
+                              ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                              : "bg-amber-50 text-amber-700 border-amber-200"
+                          }`}>
+                            {sub.status === "ACTIVE" ? "نشط" : "تجريبي"}
+                          </span>
+                          {sub.currentPeriodEnd && (
+                            <p className={`text-xs mt-1 flex items-center gap-1 ${isExpiringSoon ? "text-red-600 font-bold" : "text-zinc-500"}`}>
+                              {isExpiringSoon && <AlertTriangle className="w-3 h-3" />}
+                              {new Date(sub.currentPeriodEnd).toLocaleDateString("ar-SA")}
+                            </p>
+                          )}
+                          {sub.amount > 0 && (
+                            <p className="text-xs text-zinc-400 mt-0.5">{sub.amount} ر.س</p>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-xs text-zinc-300">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-zinc-700 font-semibold">{t._count.events}</td>
+                    <td className="px-4 py-3 text-zinc-600 text-xs font-mono">{formatStorage(t.storageUsedBytes)}</td>
+                    <td className="px-4 py-3">
+                      {t.isActive
+                        ? <CheckCircle className="w-5 h-5 text-emerald-500" />
+                        : <XCircle className="w-5 h-5 text-red-500" />}
+                    </td>
+                    <td className="px-4 py-3 text-zinc-500 text-xs">
+                      {new Date(t.createdAt).toLocaleDateString("ar-SA")}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
 
         {tenants.length === 0 && (
-          <div className="text-center py-12 text-gray-400 text-sm">لا يوجد مشتركون يطابقون البحث</div>
+          <div className="text-center py-16 text-zinc-500 text-sm">لا يوجد مشتركون يطابقون البحث</div>
         )}
       </div>
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex justify-center gap-2 mt-4">
+        <div className="flex justify-center items-center gap-2 mt-6">
           {pageNum > 1 && (
-            <Link href={buildUrl({ page: String(pageNum - 1) })} className="px-3 py-1.5 text-sm bg-white border rounded-lg hover:bg-gray-50">
+            <Link
+              href={buildUrl({ page: String(pageNum - 1) })}
+              className="px-4 py-2 text-sm bg-white border border-zinc-200 rounded-xl hover:bg-zinc-50 hover:border-amber-300 font-semibold text-zinc-700 transition-colors"
+            >
               السابق
             </Link>
           )}
-          <span className="px-3 py-1.5 text-sm text-gray-500">{pageNum} / {totalPages}</span>
+          <span className="px-3 py-2 text-sm text-zinc-700 font-bold">{pageNum} / {totalPages}</span>
           {pageNum < totalPages && (
-            <Link href={buildUrl({ page: String(pageNum + 1) })} className="px-3 py-1.5 text-sm bg-white border rounded-lg hover:bg-gray-50">
+            <Link
+              href={buildUrl({ page: String(pageNum + 1) })}
+              className="px-4 py-2 text-sm bg-white border border-zinc-200 rounded-xl hover:bg-zinc-50 hover:border-amber-300 font-semibold text-zinc-700 transition-colors"
+            >
               التالي
             </Link>
           )}
