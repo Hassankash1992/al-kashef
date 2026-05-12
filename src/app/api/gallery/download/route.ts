@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
-import archiver from "archiver";
-import { Readable } from "stream";
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const archiver = require("archiver");
 
 const PLATFORM_S3 = new S3Client({
   region: "auto",
@@ -49,7 +49,7 @@ export async function POST(req: Request) {
   const archive = archiver("zip", { zlib: { level: 6 } });
   const chunks: Uint8Array[] = [];
   const collector = new Promise<Buffer>((resolve, reject) => {
-    archive.on("data", (chunk) => chunks.push(chunk));
+    archive.on("data", (chunk: Uint8Array) => chunks.push(chunk));
     archive.on("end", () => resolve(Buffer.concat(chunks)));
     archive.on("error", reject);
   });
