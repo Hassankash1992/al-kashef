@@ -120,10 +120,23 @@ export async function searchFacesByImage(
 ): Promise<{ results: FppSearchResult[]; searchedFaceConfidence: number }> {
   const facesetId = getFacesetId(tenantId, eventId);
 
-  const data = await fppRequest("/search", {
-    outer_id: facesetId,
-    return_result_count: 50,
-  }, selfieBuffer);
+  let data: any;
+  try {
+    data = await fppRequest("/search", {
+      outer_id: facesetId,
+      return_result_count: 50,
+    }, selfieBuffer);
+  } catch (err: any) {
+    const msg = err?.message ?? "";
+    // Faceset doesn't exist or empty → no photos indexed → return empty
+    if (msg.includes("INVALID_OUTER_ID") || msg.includes("EMPTY_FACESET") || msg.includes("FACESET_EMPTY")) {
+      return { results: [], searchedFaceConfidence: 0 };
+    }
+    if (msg.includes("NO_FACE_FOUND")) {
+      throw new SearchError("لم نعثر على وجه في صورتك", "NO_FACE_IN_SELFIE");
+    }
+    throw err;
+  }
 
   const searchedFaceConfidence = data.faces?.[0]?.confidence ?? 0;
   const results: FppSearchResult[] = (data.results ?? [])

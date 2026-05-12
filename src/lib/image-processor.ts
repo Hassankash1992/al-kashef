@@ -5,8 +5,8 @@
 
 import sharp from "sharp";
 import { db } from "./db";
-import { getStorageAdapter } from "./storage-adapter";
 import { S3Client, GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
+import { indexPhotoFace, isFaceRecognitionConfigured } from "./face-recognition";
 
 const PLATFORM_S3 = new S3Client({
   region: "auto",
@@ -74,6 +74,20 @@ export async function processPhotoInline(photoId: string): Promise<void> {
         status: "PROCESSED",
       },
     });
+
+    // Auto-index face if face recognition is configured
+    if (await isFaceRecognitionConfigured()) {
+      try {
+        await indexPhotoFace(photo.tenantId, photo.eventId, photo.id, buffer);
+        await db.photo.update({
+          where: { id: photoId },
+          data: { status: "FACE_INDEXED", faceIndexed: true },
+        });
+      } catch (indexErr: any) {
+        // Indexing failed but thumbnail succeeded — keep PROCESSED status
+        console.error(`Face indexing failed for photo ${photoId}:`, indexErr.message);
+      }
+    }
   } catch (err: any) {
     console.error(`Failed to process photo ${photoId}:`, err);
     await db.photo.update({
