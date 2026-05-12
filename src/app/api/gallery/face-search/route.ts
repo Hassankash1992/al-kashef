@@ -54,8 +54,8 @@ export async function POST(req: Request) {
     req.headers.get("x-real-ip") ||
     "";
 
-  // Quality check before hitting Rekognition
-  const validation = await validateSelfie(selfieBuffer);
+  // Quality check using the tenant's provider (matches search call)
+  const validation = await validateSelfie(selfieBuffer, event.tenantId);
   if (!validation.valid) {
     return NextResponse.json(
       {
