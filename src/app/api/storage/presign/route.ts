@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getUploadPresignedUrl, buildKey } from "@/lib/storage";
 import { DEFAULT_PLAN_LIMITS, withinLimit } from "@/lib/plans";
+import { checkRateLimit, LIMITS } from "@/lib/rate-limit";
 import { z } from "zod";
 import { v4 as uuidv4 } from "uuid";
 import path from "path";
@@ -17,6 +18,15 @@ const schema = z.object({
 export async function POST(req: Request) {
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  // Per-user rate limit: 50 presigns/min
+  const rl = await checkRateLimit(userId, LIMITS.fileUpload);
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: `تجاوزت سرعة الرفع، انتظر ${rl.retryAfter} ثانية` },
+      { status: 429, headers: { "Retry-After": String(rl.retryAfter ?? 30) } }
+    );
+  }
 
   const tenantUser = await db.tenantUser.findFirst({
     where: { clerkUserId: userId },
