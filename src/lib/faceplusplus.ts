@@ -9,7 +9,19 @@
  * - SearchFaces uses raw bytes from selfie
  */
 
+import sharp from "sharp";
+
 const FPP_BASE = "https://api-us.faceplusplus.com/facepp/v3";
+
+// Face++ has 2MB limit on image_base64 — resize aggressively
+async function prepareImageForFpp(buffer: Buffer): Promise<Buffer> {
+  // Resize to max 1024px on longest side, JPEG quality 85
+  return sharp(buffer)
+    .rotate() // auto-rotate based on EXIF
+    .resize(1024, 1024, { fit: "inside", withoutEnlargement: true })
+    .jpeg({ quality: 85, mozjpeg: true })
+    .toBuffer();
+}
 
 interface FppCredentials {
   apiKey: string;
@@ -40,7 +52,9 @@ async function fppRequest(endpoint: string, params: Record<string, any>, fileBuf
     if (v !== undefined && v !== null) body.append(k, String(v));
   }
   if (fileBuffer) {
-    body.append("image_base64", fileBuffer.toString("base64"));
+    // Always resize before sending — Face++ rejects images > 2MB
+    const resized = await prepareImageForFpp(fileBuffer);
+    body.append("image_base64", resized.toString("base64"));
   }
 
   const res = await fetch(`${FPP_BASE}${endpoint}`, {

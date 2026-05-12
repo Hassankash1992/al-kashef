@@ -64,9 +64,13 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     });
   }
 
-  // Process IN PARALLEL — wait for results
-  const results = await Promise.allSettled(
-    photos.map(async (photo) => {
+  // Process SEQUENTIALLY (Face++ free tier has 5 RPS limit)
+  let succeeded = 0;
+  let failed = 0;
+  const errors: string[] = [];
+
+  for (const photo of photos) {
+    try {
       const obj = await PLATFORM_S3.send(
         new GetObjectCommand({ Bucket: PLATFORM_BUCKET, Key: photo.storageKey })
       );
@@ -76,18 +80,13 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
         where: { id: photo.id },
         data: { status: "FACE_INDEXED", faceIndexed: true },
       });
-      return photo.id;
-    })
-  );
-
-  const succeeded = results.filter((r) => r.status === "fulfilled").length;
-  const failed = results.filter((r) => r.status === "rejected").length;
-
-  // Mark failed ones so they don't loop forever
-  for (let i = 0; i < results.length; i++) {
-    if (results[i].status === "rejected") {
-      const reason = (results[i] as PromiseRejectedResult).reason;
-      console.error(`Failed to index photo ${photos[i].id}:`, reason?.message ?? reason);
+      succeeded++;
+    } catch (err: any) {
+      failed++;
+      const msg = err?.message ?? "unknown";
+      errors.push(`${photo.id}: ${msg}`);
+      console.error(`[reindex] photo ${photo.id} failed:`, msg);
+      // Mark photo so we know it tried (for now still keep faceIndexed=false to allow retry)
     }
   }
 
@@ -106,8 +105,9 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     processed: succeeded,
     failed,
     remaining,
+    errors: errors.slice(0, 5), // first 5 errors for debugging
     message: remaining > 0
-      ? `تمت فهرسة ${succeeded}، باقي ${remaining} — تابع للضغط للمتابعة`
+      ? `تمت فهرسة ${succeeded}، باقي ${remaining}${failed > 0 ? ` (${failed} فشلت)` : ""}`
       : `اكتملت فهرسة جميع الصور`,
   });
 }
