@@ -31,10 +31,22 @@ export default function FaceIndexingPanel({ eventId, stats, rekognitionConfigure
     setDone(false);
     setError("");
     try {
-      const res = await fetch(`/api/events/${eventId}/reindex`, { method: "POST" });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "حدث خطأ");
+      // Loop in batches until done
+      let totalProcessed = 0;
+      let totalFailed = 0;
+      let safetyLoop = 0;
+      while (safetyLoop < 50) {
+        safetyLoop++;
+        const res = await fetch(`/api/events/${eventId}/reindex`, { method: "POST" });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "حدث خطأ");
+        totalProcessed += data.processed ?? 0;
+        totalFailed += data.failed ?? 0;
+        if (data.done) break;
+      }
       setDone(true);
+      // Refresh page to show updated stats
+      setTimeout(() => window.location.reload(), 1500);
     } catch (err: any) {
       setError(err.message);
     } finally {
