@@ -315,5 +315,18 @@ export class SearchError extends Error {
 // ─── Stats ────────────────────────────────────────────────────────────────────
 
 export async function isRekognitionConfigured(): Promise<boolean> {
-  return !!(process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY && process.env.AWS_REGION);
+  const accessKey = process.env.AWS_ACCESS_KEY_ID?.trim();
+  const secret = process.env.AWS_SECRET_ACCESS_KEY?.trim();
+  const region = process.env.AWS_REGION?.trim();
+  if (!accessKey || !secret || !region) return false;
+
+  // Reject obvious placeholder values
+  const placeholders = ["your_aws", "AKIA...", "your-access-key", "xxx", "akia..."];
+  const lower = accessKey.toLowerCase();
+  if (placeholders.some((p) => lower.includes(p.toLowerCase()))) return false;
+
+  // Real AWS Access Key IDs start with AKIA or ASIA and are exactly 20 chars
+  if (!/^(AKIA|ASIA)[A-Z0-9]{16}$/.test(accessKey)) return false;
+
+  return true;
 }
