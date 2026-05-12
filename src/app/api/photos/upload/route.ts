@@ -3,6 +3,8 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getImageProcessingQueue } from "@/lib/queue";
 
+export const maxDuration = 60; // allow synchronous processing on Vercel
+
 export async function POST(req: Request) {
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -24,6 +26,8 @@ export async function POST(req: Request) {
   await db.photo.update({ where: { id: photoId }, data: { status: "PROCESSING" } });
   await db.event.update({ where: { id: eventId }, data: { totalPhotos: { increment: 1 } } });
 
+  // Try BullMQ queue first
+  let queued = false;
   try {
     await getImageProcessingQueue().add("process-image", {
       photoId,
@@ -34,11 +38,23 @@ export async function POST(req: Request) {
       attempts: 3,
       backoff: { type: "exponential", delay: 2000 },
     });
+    queued = true;
   } catch {
-    // Queue not available — process inline (best-effort, fire-and-forget)
-    const { processPhotoInline } = await import("@/lib/image-processor");
-    processPhotoInline(photoId).catch(console.error);
+    queued = false;
   }
 
-  return NextResponse.json({ success: true });
+  if (queued) {
+    // Worker will handle it asynchronously
+    return NextResponse.json({ success: true, mode: "async" });
+  }
+
+  // No worker — process synchronously (await) so it actually completes on Vercel
+  try {
+    const { processPhotoInline } = await import("@/lib/image-processor");
+    await processPhotoInline(photoId);
+    return NextResponse.json({ success: true, mode: "inline" });
+  } catch (err: any) {
+    console.error("[upload] inline processing failed:", err?.message);
+    return NextResponse.json({ success: true, mode: "inline-failed", warning: err?.message });
+  }
 }
