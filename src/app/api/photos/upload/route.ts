@@ -35,8 +35,9 @@ export async function POST(req: Request) {
       backoff: { type: "exponential", delay: 2000 },
     });
   } catch {
-    // Queue not available — mark as processed directly (dev mode fallback)
-    await db.photo.update({ where: { id: photoId }, data: { status: "PROCESSED" } });
+    // Queue not available — process inline (best-effort, fire-and-forget)
+    const { processPhotoInline } = await import("@/lib/image-processor");
+    processPhotoInline(photoId).catch(console.error);
   }
 
   return NextResponse.json({ success: true });

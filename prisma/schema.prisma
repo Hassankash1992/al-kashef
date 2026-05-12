@@ -31,6 +31,8 @@ model Tenant {
   subscriptions Subscription[]
   invoices      Invoice[]
   adminMessages AdminMessage[]
+  supportTickets SupportTicket[]
+  notifications NotificationLog[]
 
   @@map("tenants")
 }
@@ -328,6 +330,183 @@ model PlanConfig {
   @@map("plan_configs")
 }
 
+// ─── Site Settings (إعدادات المنصة العامة - singleton) ─────────────────────────
+
+model SiteSettings {
+  id              Int      @id @default(1)
+  siteName        String   @default("EventFace")
+  siteTagline     String   @default("منصة معارض الفعاليات الذكية")
+  logoUrl         String?
+  faviconUrl      String?
+  ogImageUrl      String?
+  footerLogoUrl   String?
+  primaryColor    String   @default("#f59e0b")
+  contactEmail    String?
+  supportEmail    String?
+  contactPhone    String?
+  whatsappNumber  String?
+  socialLinks     Json?    // { twitter, instagram, facebook, linkedin }
+  customCss       String?
+  customJs        String?
+  maintenanceMode Boolean  @default(false)
+  maintenanceMessage String?
+  updatedAt       DateTime @updatedAt
+  updatedBy       String?
+
+  @@map("site_settings")
+}
+
+// ─── Multi-Admin (موظفون بصلاحيات) ───────────────────────────────────────────
+
+model AdminUser {
+  id          String      @id @default(cuid())
+  clerkUserId String      @unique
+  email       String?
+  name        String?
+  role        AdminRole   @default(SUPPORT)
+  permissions Json?       // صلاحيات دقيقة قابلة للتخصيص
+  active      Boolean     @default(true)
+  invitedBy   String?
+  lastLoginAt DateTime?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  supportMessages SupportMessage[]
+  notificationsCreated NotificationTemplate[]
+
+  @@map("admin_users")
+}
+
+// ─── Support Chat (دردشة الدعم الفني) ────────────────────────────────────────
+
+model SupportTicket {
+  id          String         @id @default(cuid())
+  tenantId    String
+  subject     String
+  status      TicketStatus   @default(OPEN)
+  priority    TicketPriority @default(NORMAL)
+  category    String?        // general, billing, technical, etc.
+  assignedTo  String?        // admin user clerkUserId
+  pinnedByAdmin Boolean      @default(false)
+  closedAt    DateTime?
+  lastMessageAt DateTime?
+  unreadByClient Int         @default(0)
+  unreadByAdmin  Int         @default(0)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  tenant   Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  messages SupportMessage[]
+
+  @@index([tenantId, status])
+  @@index([status, priority])
+  @@map("support_tickets")
+}
+
+model SupportMessage {
+  id          String       @id @default(cuid())
+  ticketId    String
+  fromType    MessageFrom
+  fromUserId  String       // Clerk userId (client) or admin userId
+  fromName    String?
+  body        String
+  attachments Json?
+  isInternal  Boolean      @default(false) // ملاحظات داخلية بين الأدمن لا يراها العميل
+  readAt      DateTime?
+  adminUserId String?      // إذا الراسل أدمن
+  createdAt   DateTime     @default(now())
+
+  ticket    SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  adminUser AdminUser?    @relation(fields: [adminUserId], references: [id])
+
+  @@index([ticketId])
+  @@map("support_messages")
+}
+
+// ─── Notification Templates (قوالب التنبيهات قابلة للتعديل) ─────────────────
+
+model NotificationTemplate {
+  id          String                @id @default(cuid())
+  key         String                @unique
+  title       String
+  description String?
+  channels    Json                  // { email: true, whatsapp: false, sms: false, inApp: true }
+  emailSubject String?
+  emailBody   String?               // HTML/Markdown مع {{variables}}
+  whatsappBody String?
+  smsBody     String?
+  inAppTitle  String?
+  inAppBody   String?
+  enabled     Boolean               @default(true)
+  variables   Json?                 // قائمة المتغيرات المتاحة
+  createdBy   String?
+  updatedBy   String?
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+
+  schedules NotificationSchedule[]
+  logs      NotificationLog[]
+  creator   AdminUser?            @relation(fields: [createdBy], references: [id])
+
+  @@map("notification_templates")
+}
+
+model NotificationSchedule {
+  id          String              @id @default(cuid())
+  templateId  String
+  trigger     ScheduleTrigger
+  triggerData Json?               // مثل { daysBeforeExpiry: 7 }
+  enabled     Boolean             @default(true)
+  lastRunAt   DateTime?
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  template NotificationTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@index([trigger, enabled])
+  @@map("notification_schedules")
+}
+
+model NotificationLog {
+  id          String              @id @default(cuid())
+  tenantId    String?
+  recipientId String?             // clerkUserId
+  templateKey String?
+  channel     NotificationChannel
+  subject     String?
+  body        String?
+  status      NotificationStatus  @default(PENDING)
+  error       String?
+  sentAt      DateTime?
+  readAt      DateTime?
+  createdAt   DateTime            @default(now())
+
+  tenant   Tenant?              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  template NotificationTemplate? @relation(fields: [templateKey], references: [key])
+
+  @@index([tenantId])
+  @@index([recipientId])
+  @@map("notification_logs")
+}
+
+// ─── WhatsApp Business API ───────────────────────────────────────────────────
+
+model WhatsAppConfig {
+  id                Int      @id @default(1)
+  enabled           Boolean  @default(false)
+  phoneNumberId     String?
+  accessToken       String?  // مشفّر
+  businessAccountId String?
+  webhookSecret     String?
+  testNumber        String?
+  defaultTemplate   String?
+  rateLimitPerMin   Int      @default(80)
+  updatedAt         DateTime @updatedAt
+  updatedBy         String?
+
+  @@map("whatsapp_config")
+}
+
 // ─── Enums ────────────────────────────────────────────────────────────────────
 
 enum Plan {
@@ -436,4 +615,70 @@ enum JobStatus {
   COMPLETED
   FAILED
   RETRYING
+}
+
+enum AdminRole {
+  SUPER_ADMIN     // كل الصلاحيات
+  ADMIN           // معظم الصلاحيات + إدارة الموظفين
+  SUPPORT         // دعم فني فقط
+  BILLING         // الاشتراكات والفواتير
+  CONTENT         // إعدادات المنصة والقوالب
+  VIEWER          // قراءة فقط
+}
+
+enum TicketStatus {
+  OPEN
+  AWAITING_CLIENT
+  AWAITING_ADMIN
+  RESOLVED
+  CLOSED
+}
+
+enum TicketPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum MessageFrom {
+  CLIENT
+  ADMIN
+  SYSTEM
+}
+
+enum ScheduleTrigger {
+  ON_USER_SIGNUP
+  ON_TENANT_CREATED
+  ON_FIRST_EVENT
+  ON_SUBSCRIPTION_CREATED
+  ON_TRIAL_STARTED
+  BEFORE_TRIAL_ENDED
+  ON_SUBSCRIPTION_RENEWED
+  BEFORE_SUBSCRIPTION_EXPIRY
+  AFTER_SUBSCRIPTION_EXPIRED
+  ON_PAYMENT_FAILED
+  ON_PAYMENT_SUCCESS
+  ON_TEAM_INVITE
+  ON_PHOTO_UPLOAD_COMPLETE
+  ON_FACE_SEARCH_DONE
+  WEEKLY_DIGEST
+  MONTHLY_DIGEST
+  CUSTOM_CRON
+}
+
+enum NotificationChannel {
+  EMAIL
+  WHATSAPP
+  SMS
+  IN_APP
+  TELEGRAM
+}
+
+enum NotificationStatus {
+  PENDING
+  QUEUED
+  SENT
+  FAILED
+  READ
 }

@@ -10,15 +10,25 @@ import {
   Settings2,
   Shield,
   ChevronLeft,
+  LifeBuoy,
+  Bell,
+  UserCog,
+  Globe2,
+  MessageCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const NAV = [
   { href: "/admin", label: "لوحة التحكم", icon: LayoutDashboard, exact: true },
   { href: "/admin/tenants", label: "المشتركون", icon: Users },
+  { href: "/admin/support", label: "الدعم الفني", icon: LifeBuoy },
   { href: "/admin/billing", label: "الفوترة والاشتراكات", icon: CreditCard },
-  { href: "/admin/messages", label: "المراسلات", icon: MessageSquare },
-  { href: "/admin/system", label: "إعدادات المنصة", icon: Settings2 },
+  { href: "/admin/messages", label: "البث الجماعي", icon: MessageSquare },
+  { href: "/admin/notifications", label: "قوالب التنبيهات", icon: Bell },
+  { href: "/admin/whatsapp", label: "WhatsApp API", icon: MessageCircle },
+  { href: "/admin/admins", label: "فريق الإدارة", icon: UserCog },
+  { href: "/admin/site", label: "إعدادات الموقع", icon: Globe2 },
+  { href: "/admin/system", label: "إعدادات الباقات", icon: Settings2 },
 ];
 
 export default function AdminSidebar() {
