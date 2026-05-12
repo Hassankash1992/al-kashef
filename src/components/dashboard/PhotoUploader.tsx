@@ -6,7 +6,8 @@ import { formatBytes } from "@/lib/utils";
 
 interface UploadFile {
   file: File;
-  id: string;
+  id: string;          // unique client-side id
+  photoId?: string;    // server-side Photo.id (set ONCE after presign)
   status: "queued" | "uploading" | "processing" | "done" | "error";
   progress: number;
   attempts: number;
@@ -18,85 +19,77 @@ interface Props {
   tenantId: string;
 }
 
-const MAX_CONCURRENT = 3;        // عدد الرفع المتزامن
-const MAX_RETRIES = 3;           // إعادة المحاولة
-const RETRY_DELAY_MS = 1500;     // تأخير قبل إعادة المحاولة
-const MAX_FILE_SIZE = 20 * 1024 * 1024;  // 20MB
+const MAX_CONCURRENT = 2;        // throttle to avoid Face++ rate limits
+const MAX_RETRIES = 2;
+const RETRY_DELAY_MS = 2000;
+const MAX_FILE_SIZE = 20 * 1024 * 1024;
 
 export default function PhotoUploader({ eventId }: Props) {
   const [files, setFiles] = useState<UploadFile[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const filesRef = useRef<UploadFile[]>([]);
-  const activeUploads = useRef(0);
-  const isProcessing = useRef(false);
+  const claimed = useRef<Set<string>>(new Set()); // synchronous claim — no race condition
 
-  // Keep ref synced with state
   useEffect(() => { filesRef.current = files; }, [files]);
 
   function updateFile(id: string, patch: Partial<UploadFile>) {
     setFiles((prev) => prev.map((f) => f.id === id ? { ...f, ...patch } : f));
   }
 
-  // Process queue: starts uploads up to MAX_CONCURRENT
-  const processQueue = useCallback(async () => {
-    if (isProcessing.current) return;
-    isProcessing.current = true;
-    try {
-      while (activeUploads.current < MAX_CONCURRENT) {
-        const next = filesRef.current.find((f) => f.status === "queued");
-        if (!next) break;
-        activeUploads.current++;
-        // Mark as uploading immediately to prevent re-pickup
-        updateFile(next.id, { status: "uploading", progress: 0 });
-        // Fire (don't await), then re-trigger queue when done
-        uploadOne(next).finally(() => {
-          activeUploads.current--;
-          // Re-process queue after slot frees
-          setTimeout(() => processQueue(), 0);
-        });
-      }
-    } finally {
-      isProcessing.current = false;
-    }
+  // Claim & process next available file
+  const tryStartNext = useCallback(async () => {
+    if (claimed.current.size >= MAX_CONCURRENT) return;
+    const next = filesRef.current.find(
+      (f) => f.status === "queued" && !claimed.current.has(f.id)
+    );
+    if (!next) return;
+    claimed.current.add(next.id); // synchronous claim
+    updateFile(next.id, { status: "uploading", progress: 0 });
+    uploadFile(next)
+      .finally(() => {
+        claimed.current.delete(next.id);
+        // Drain remaining slots
+        for (let i = 0; i < MAX_CONCURRENT; i++) {
+          setTimeout(() => tryStartNext(), 0);
+        }
+      });
   }, []);
 
   const addFiles = useCallback((newFiles: FileList | null) => {
     if (!newFiles) return;
     const valid: UploadFile[] = [];
-    const rejected: { name: string; reason: string }[] = [];
-
     Array.from(newFiles).forEach((file) => {
-      if (!file.type.startsWith("image/")) {
-        rejected.push({ name: file.name, reason: "ليست صورة" });
-        return;
-      }
-      if (file.size > MAX_FILE_SIZE) {
-        rejected.push({ name: file.name, reason: "حجم كبير (>20MB)" });
-        return;
-      }
+      if (!file.type.startsWith("image/")) return;
+      if (file.size > MAX_FILE_SIZE) return;
       valid.push({
         file,
-        id: Math.random().toString(36).slice(2),
+        id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
         status: "queued",
         progress: 0,
         attempts: 0,
       });
     });
-
-    if (rejected.length > 0) {
-      console.warn("Rejected files:", rejected);
-    }
-
     setFiles((prev) => [...prev, ...valid]);
-    // Trigger queue after state updates
-    setTimeout(() => processQueue(), 0);
-  }, [processQueue]);
+    // Start processing
+    for (let i = 0; i < MAX_CONCURRENT; i++) {
+      setTimeout(() => tryStartNext(), 50 * i);
+    }
+  }, [tryStartNext]);
 
-  async function uploadOne(uf: UploadFile, attempt = 1): Promise<void> {
+  /**
+   * Upload one file:
+   *   1. Presign (creates Photo row) — ONCE, no retry
+   *   2. PUT to R2 — retry on transient errors (idempotent, same URL)
+   *   3. Notify server — retry on transient errors (idempotent on photoId)
+   */
+  async function uploadFile(uf: UploadFile) {
+    let photoId: string | undefined;
+    let presignedUrl: string | undefined;
+
+    // ─── Step 1: Presign (ONCE) ─────────────────────────────────────────────
     try {
-      // Step 1: Get presigned URL
-      const presignRes = await fetch("/api/storage/presign", {
+      const res = await fetch("/api/storage/presign", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -106,66 +99,83 @@ export default function PhotoUploader({ eventId }: Props) {
           size: uf.file.size,
         }),
       });
-      if (!presignRes.ok) {
-        const err = await presignRes.json().catch(() => ({}));
-        throw new Error(err.error || "فشل تجهيز الرفع");
-      }
-      const { presignedUrl, photoId } = await presignRes.json();
-
-      // Step 2: Upload to R2 with progress
-      await uploadToR2(presignedUrl, uf, (progress) => {
-        updateFile(uf.id, { progress });
-      });
-
-      // Step 3: Notify server (mark as PROCESSING)
-      updateFile(uf.id, { status: "processing", progress: 95 });
-      const notifyRes = await fetch("/api/photos/upload", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ photoId, eventId }),
-      });
-      if (!notifyRes.ok) {
-        // Photo is uploaded to R2 but server didn't ack — still count as success
-        console.warn("Server ack failed for", photoId);
-      }
-
-      updateFile(uf.id, { status: "done", progress: 100, attempts: attempt });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "فشل تجهيز الرفع");
+      presignedUrl = data.presignedUrl;
+      photoId = data.photoId;
+      updateFile(uf.id, { photoId });
     } catch (err: any) {
-      const message = err?.message ?? "خطأ غير معروف";
+      updateFile(uf.id, { status: "error", error: err?.message ?? "فشل التجهيز" });
+      return;
+    }
 
-      // Retry on network/transient errors
-      const shouldRetry =
-        attempt < MAX_RETRIES &&
-        !message.includes("الحد الأقصى") && // plan limit
-        !message.includes("التخزين ممتلئ") &&
-        !message.includes("Unauthorized");
+    if (!presignedUrl || !photoId) {
+      updateFile(uf.id, { status: "error", error: "بيانات ناقصة من الخادم" });
+      return;
+    }
 
-      if (shouldRetry) {
-        const delay = RETRY_DELAY_MS * Math.pow(2, attempt - 1); // exponential backoff
-        updateFile(uf.id, {
-          status: "uploading",
-          progress: 0,
-          error: `إعادة المحاولة ${attempt + 1}/${MAX_RETRIES}...`,
-          attempts: attempt,
-        });
-        await new Promise((r) => setTimeout(r, delay));
-        return uploadOne(uf, attempt + 1);
+    // ─── Step 2: Upload to R2 (with retry — idempotent) ─────────────────────
+    let r2Success = false;
+    let r2Error: string | undefined;
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        await uploadToR2(presignedUrl, uf.file, (p) => updateFile(uf.id, { progress: p }));
+        r2Success = true;
+        break;
+      } catch (err: any) {
+        r2Error = err?.message ?? "فشل الرفع";
+        if (attempt < MAX_RETRIES) {
+          updateFile(uf.id, { error: `إعادة المحاولة ${attempt + 1}...`, attempts: attempt });
+          await sleep(RETRY_DELAY_MS * attempt);
+        }
       }
+    }
+    if (!r2Success) {
+      updateFile(uf.id, { status: "error", error: r2Error });
+      return;
+    }
 
-      updateFile(uf.id, { status: "error", error: message, attempts: attempt });
+    // ─── Step 3: Notify server (with retry — idempotent on photoId) ─────────
+    updateFile(uf.id, { status: "processing", progress: 95, error: undefined });
+    let notifySuccess = false;
+    let notifyError: string | undefined;
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        const res = await fetch("/api/photos/upload", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ photoId, eventId }),
+        });
+        if (res.ok) {
+          notifySuccess = true;
+          break;
+        }
+        const data = await res.json().catch(() => ({}));
+        notifyError = data.error || `HTTP ${res.status}`;
+        if (attempt < MAX_RETRIES) await sleep(RETRY_DELAY_MS * attempt);
+      } catch (err: any) {
+        notifyError = err?.message ?? "خطأ في الشبكة";
+        if (attempt < MAX_RETRIES) await sleep(RETRY_DELAY_MS * attempt);
+      }
+    }
+
+    if (notifySuccess) {
+      updateFile(uf.id, { status: "done", progress: 100, error: undefined });
+    } else {
+      // R2 upload succeeded but notify failed — photo exists, just stuck in UPLOADED
+      // Mark as "done" anyway since photo IS uploaded; user can re-trigger processing later
+      updateFile(uf.id, { status: "done", progress: 100, error: `رُفعت لكن المعالجة فشلت: ${notifyError}` });
     }
   }
 
-  function uploadToR2(url: string, uf: UploadFile, onProgress: (p: number) => void): Promise<void> {
+  function uploadToR2(url: string, file: File, onProgress: (p: number) => void): Promise<void> {
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
       xhr.open("PUT", url);
-      xhr.setRequestHeader("Content-Type", uf.file.type);
-      xhr.timeout = 120_000; // 2 min per file
+      xhr.setRequestHeader("Content-Type", file.type);
+      xhr.timeout = 180_000;
       xhr.upload.onprogress = (e) => {
-        if (e.lengthComputable) {
-          onProgress(Math.round((e.loaded / e.total) * 90));
-        }
+        if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 90));
       };
       xhr.onload = () => {
         if (xhr.status >= 200 && xhr.status < 300) resolve();
@@ -174,7 +184,7 @@ export default function PhotoUploader({ eventId }: Props) {
       xhr.onerror = () => reject(new Error("خطأ في الشبكة"));
       xhr.ontimeout = () => reject(new Error("انتهت مهلة الرفع"));
       xhr.onabort = () => reject(new Error("أُلغي الرفع"));
-      xhr.send(uf.file);
+      xhr.send(file);
     });
   }
 
@@ -193,8 +203,10 @@ export default function PhotoUploader({ eventId }: Props) {
   const overallProgress = files.length > 0 ? Math.round((totalDone / files.length) * 100) : 0;
 
   function retryAll() {
-    setFiles((prev) => prev.map((f) => f.status === "error" ? { ...f, status: "queued", error: undefined, attempts: 0 } : f));
-    setTimeout(() => processQueue(), 100);
+    setFiles((prev) => prev.map((f) =>
+      f.status === "error" ? { ...f, status: "queued", error: undefined, attempts: 0, photoId: undefined } : f
+    ));
+    setTimeout(() => tryStartNext(), 100);
   }
 
   return (
@@ -226,25 +238,24 @@ export default function PhotoUploader({ eventId }: Props) {
           <Upload className={`w-6 h-6 sm:w-7 sm:h-7 ${isDragging ? "text-black" : "text-amber-600"}`} strokeWidth={2.5} />
         </div>
         <p className="font-bold text-zinc-900 text-base sm:text-lg mb-1">اسحب وأفلت الصور هنا</p>
-        <p className="text-sm text-zinc-500">أو اضغط لاختيار الصور من جهازك (دعم آلاف الصور)</p>
-        <p className="text-xs text-zinc-400 mt-3">JPG، PNG، WEBP — حتى 20MB لكل صورة · {MAX_CONCURRENT} متوازي</p>
+        <p className="text-sm text-zinc-500">أو اضغط لاختيار الصور من جهازك</p>
+        <p className="text-xs text-zinc-400 mt-3">JPG، PNG، WEBP — حتى 20MB · {MAX_CONCURRENT} متوازي</p>
       </div>
 
       {files.length > 0 && (
         <div className="bg-white rounded-2xl border border-zinc-100 shadow-sm overflow-hidden">
-          {/* Overall progress */}
           <div className="px-5 py-3 border-b border-zinc-100 bg-gradient-to-l from-amber-50/50 to-white">
             <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
               <p className="text-sm font-bold text-zinc-900">
                 {totalDone} / {files.length} · <span className="text-amber-700">{overallProgress}%</span>
               </p>
               <div className="flex items-center gap-2 text-xs">
-                {queued > 0 && <Pill icon={Clock} label={`${queued} في الطابور`} color="zinc" />}
+                {queued > 0 && <Pill icon={Clock} label={`${queued} انتظار`} color="zinc" />}
                 {uploading > 0 && <Pill icon={Loader2} label={`${uploading} جارٍ`} color="amber" spin />}
                 {processing > 0 && <Pill icon={Loader2} label={`${processing} يعالج`} color="blue" spin />}
                 {done > 0 && <Pill icon={CheckCircle} label={`${done} مكتمل`} color="emerald" />}
                 {errors > 0 && (
-                  <button onClick={retryAll} className="bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 px-2 py-0.5 rounded-full text-xs font-bold flex items-center gap-1 transition-colors">
+                  <button onClick={retryAll} className="bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 px-2 py-0.5 rounded-full text-xs font-bold flex items-center gap-1">
                     <AlertCircle className="w-3 h-3" />
                     {errors} فشل · إعادة
                   </button>
@@ -260,19 +271,17 @@ export default function PhotoUploader({ eventId }: Props) {
           </div>
 
           <div className="flex items-center justify-between px-5 py-2 border-b border-zinc-100">
-            <p className="text-xs text-zinc-500">رفع متوازي ذكي · إعادة محاولة تلقائية عند الفشل</p>
+            <p className="text-xs text-zinc-500">رفع متوازي ذكي · بدون تكرار</p>
             <button
               onClick={() => setFiles((prev) => prev.filter((f) => f.status !== "done"))}
-              className="text-xs text-zinc-500 hover:text-zinc-800 font-medium transition-colors"
+              className="text-xs text-zinc-500 hover:text-zinc-800 font-medium"
             >
               مسح المكتملة
             </button>
           </div>
 
           <div className="divide-y divide-zinc-50 max-h-96 overflow-y-auto">
-            {files.map((f) => (
-              <FileRow key={f.id} file={f} />
-            ))}
+            {files.map((f) => <FileRow key={f.id} file={f} />)}
           </div>
         </div>
       )}
@@ -284,11 +293,7 @@ function FileRow({ file: f }: { file: UploadFile }) {
   return (
     <div className="flex items-center gap-3 px-5 py-3">
       <div className="w-10 h-10 rounded-lg overflow-hidden bg-zinc-100 shrink-0 border border-zinc-200">
-        <img
-          src={URL.createObjectURL(f.file)}
-          alt={f.file.name}
-          className="w-full h-full object-cover"
-        />
+        <img src={URL.createObjectURL(f.file)} alt={f.file.name} className="w-full h-full object-cover" />
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-sm text-zinc-900 truncate font-medium">{f.file.name}</p>
@@ -329,3 +334,5 @@ function Pill({ icon: Icon, label, color, spin }: { icon: any; label: string; co
     </span>
   );
 }
+
+function sleep(ms: number) { return new Promise((r) => setTimeout(r, ms)); }
