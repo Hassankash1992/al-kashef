@@ -7,8 +7,19 @@ import {
   SearchError,
   isRekognitionConfigured,
 } from "@/lib/rekognition";
+import { checkRateLimit, getClientIp, LIMITS } from "@/lib/rate-limit";
 
 export async function POST(req: Request) {
+  // Rate limit: 5 face searches per minute per IP
+  const ip = getClientIp(req);
+  const rl = await checkRateLimit(ip, LIMITS.faceSearch);
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: `تجاوزت حد البحث المسموح، حاول بعد ${rl.retryAfter} ثانية` },
+      { status: 429, headers: { "Retry-After": String(rl.retryAfter ?? 60) } }
+    );
+  }
+
   const formData = await req.formData();
   const selfie = formData.get("selfie") as File | null;
   const eventId = formData.get("eventId") as string | null;

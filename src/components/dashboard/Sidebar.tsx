@@ -36,7 +36,7 @@ export default function Sidebar({ tenantName, tenantSlug }: SidebarProps) {
   const pathname = usePathname();
 
   return (
-    <aside className="w-64 bg-zinc-950 border-l border-zinc-900 flex flex-col h-screen sticky top-0 shadow-2xl">
+    <aside className="hidden lg:flex w-64 bg-zinc-950 border-l border-zinc-900 flex-col h-screen sticky top-0 shadow-2xl">
       {/* Brand */}
       <div className="px-5 py-5 border-b border-zinc-900">
         <Link href="/dashboard" className="flex items-center gap-3 group">

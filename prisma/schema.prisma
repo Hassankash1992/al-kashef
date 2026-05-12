@@ -507,6 +507,52 @@ model WhatsAppConfig {
   @@map("whatsapp_config")
 }
 
+// ─── Payment Gateway (MyFatoorah, Stripe, etc.) ──────────────────────────────
+
+model PaymentGatewayConfig {
+  provider          PaymentProvider @id
+  enabled           Boolean         @default(false)
+  testMode          Boolean         @default(true)
+  apiKey            String?         // مشفّر
+  publishableKey    String?
+  webhookSecret     String?
+  baseUrl           String?
+  supportedCountries Json?          // ["SAU", "KWT", "ARE", ...]
+  supportedMethods  Json?           // ["VISA", "MADA", "APPLE_PAY", "STC_PAY", ...]
+  defaultCurrency   String          @default("SAR")
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  updatedBy         String?
+
+  @@map("payment_gateway_configs")
+}
+
+model Payment {
+  id                String         @id @default(cuid())
+  tenantId          String
+  subscriptionId    String?
+  invoiceId         String?
+  provider          PaymentProvider
+  providerInvoiceId String?        // MyFatoorah Invoice ID
+  providerPaymentId String?        // MyFatoorah Payment ID
+  amount            Float
+  currency          String         @default("SAR")
+  status            PaymentStatus  @default(INITIATED)
+  paymentMethod     String?
+  customerEmail     String?
+  customerPhone     String?
+  paymentUrl        String?        // الرابط اللي يدفع منه العميل
+  errorMessage      String?
+  rawResponse       Json?
+  paidAt            DateTime?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  @@index([tenantId, status])
+  @@index([providerInvoiceId])
+  @@map("payments")
+}
+
 // ─── Enums ────────────────────────────────────────────────────────────────────
 
 enum Plan {
@@ -681,4 +727,23 @@ enum NotificationStatus {
   SENT
   FAILED
   READ
+}
+
+enum PaymentProvider {
+  MYFATOORAH
+  STRIPE
+  MOYASAR
+  TAP
+  PAYTABS
+  HYPERPAY
+}
+
+enum PaymentStatus {
+  INITIATED
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+  CANCELLED
+  EXPIRED
 }
