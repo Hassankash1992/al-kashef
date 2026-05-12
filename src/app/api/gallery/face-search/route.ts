@@ -4,9 +4,9 @@ import { getPublicUrl } from "@/lib/storage";
 import {
   searchFacesByImage,
   validateSelfie,
-  SearchError,
-  isRekognitionConfigured,
-} from "@/lib/rekognition";
+  isFaceRecognitionConfigured,
+} from "@/lib/face-recognition";
+import { SearchError } from "@/lib/rekognition";
 import { checkRateLimit, getClientIp, LIMITS } from "@/lib/rate-limit";
 
 export async function POST(req: Request) {
@@ -41,7 +41,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "البحث بالوجه غير مفعل لهذه الفعالية" }, { status: 403 });
   }
 
-  if (!await isRekognitionConfigured()) {
+  if (!await isFaceRecognitionConfigured()) {
     return NextResponse.json(
       { error: "خدمة التعرف على الوجوه غير متاحة حالياً، تواصل مع مزود الخدمة" },
       { status: 503 }
