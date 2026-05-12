@@ -14,9 +14,30 @@ const EVENT_TYPES = [
 ];
 
 const EVENT_STATUSES = [
-  { value: "DRAFT", label: "مسودة" },
-  { value: "ACTIVE", label: "نشطة" },
-  { value: "ARCHIVED", label: "مؤرشفة" },
+  {
+    value: "DRAFT",
+    label: "مسودة",
+    desc: "غير منشورة — لا يراها الضيوف",
+    color: "bg-amber-50 text-amber-800 border-amber-300 ring-amber-200",
+    activeColor: "bg-amber-500 text-white border-amber-500",
+    dot: "bg-amber-500",
+  },
+  {
+    value: "ACTIVE",
+    label: "نشطة",
+    desc: "منشورة ومتاحة للضيوف",
+    color: "bg-emerald-50 text-emerald-800 border-emerald-300 ring-emerald-200",
+    activeColor: "bg-emerald-500 text-white border-emerald-500",
+    dot: "bg-emerald-500",
+  },
+  {
+    value: "ARCHIVED",
+    label: "مؤرشفة",
+    desc: "محفوظة — لا يصل لها أحد",
+    color: "bg-zinc-50 text-zinc-700 border-zinc-300 ring-zinc-200",
+    activeColor: "bg-zinc-700 text-white border-zinc-700",
+    dot: "bg-zinc-500",
+  },
 ];
 
 interface EventData {
@@ -116,13 +137,28 @@ export default function EventSettingsForm({ event }: { event: EventData }) {
             </select>
           </Field>
           <Field label="الحالة">
-            <select
-              value={form.status}
-              onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}
-              className={inputCls + " appearance-none cursor-pointer"}
-            >
-              {EVENT_STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-            </select>
+            <div className="grid grid-cols-3 gap-2">
+              {EVENT_STATUSES.map((s) => {
+                const active = form.status === s.value;
+                return (
+                  <button
+                    key={s.value}
+                    type="button"
+                    onClick={() => setForm((f) => ({ ...f, status: s.value }))}
+                    className={`relative flex flex-col items-center gap-1 px-2 py-2.5 rounded-xl text-xs font-bold border-2 transition-all ${
+                      active ? s.activeColor + " shadow-md" : s.color + " hover:ring-4"
+                    }`}
+                    title={s.desc}
+                  >
+                    <span className={`w-2 h-2 rounded-full ${active ? "bg-white" : s.dot}`} />
+                    {s.label}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-xs text-zinc-500 mt-1.5 leading-relaxed">
+              {EVENT_STATUSES.find((s) => s.value === form.status)?.desc}
+            </p>
           </Field>
         </div>
 
