@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
-import { Camera, ArrowLeft, Check, Heart, Plus, Minus, Star, ScanFace, Globe, Cloud, Lock, MessageCircle, BarChart3, Sparkles } from "lucide-react";
+import { Camera, ArrowLeft, Check, Brain, Plus, Minus, Star, ScanFace, Globe, Cloud, Lock, MessageCircle, BarChart3, Sparkles } from "lucide-react";
 
 export default async function HomePage() {
   const { userId } = await auth();
@@ -67,23 +67,23 @@ function Hero() {
         <div className="fade-up" style={{ animationDelay: "0.1s" }}>
           <span className="inline-flex items-center gap-1.5 bg-amber-100/60 text-amber-800 text-[10px] font-bold tracking-wider uppercase px-2.5 py-1 rounded-full">
             <Sparkles className="w-3 h-3" />
-            منصة احترافية للمصورين العرب
+            المنصة الأولى في الخليج لمعارض الفعاليات
           </span>
         </div>
 
         <h1 className="mt-5 text-3xl sm:text-5xl md:text-6xl leading-[1.1] tracking-tight font-bold max-w-3xl fade-up" style={{ animationDelay: "0.2s" }}>
-          الضيوف يلتقطون <span className="text-amber-700">سيلفي واحدة</span>،
+          بسيلفي <span className="text-amber-700">واحد</span>،
           <br className="hidden sm:inline" />
-          {" "}ويستلمون كل صورهم.
+          {" "}يستخرج صورته من بين ١٠٬٠٠٠.
         </h1>
 
         <p className="mt-4 text-sm sm:text-base text-zinc-600 max-w-xl leading-relaxed fade-up" style={{ animationDelay: "0.4s" }}>
-          منصة للاستوديوهات والمصورين، تختصر ساعات التنظيم اليدوي إلى ثوانٍ للضيف. مدعومة بالذكاء الاصطناعي للتعرّف على الوجوه.
+          وداعاً لساعات التنظيم اليدوي. مرحباً بمحرّك ذكاء اصطناعي يميّز كل وجه من بين الآلاف، في أقل من ثلاث ثوانٍ.
         </p>
 
         <div className="mt-6 flex flex-wrap items-center gap-2 fade-up" style={{ animationDelay: "0.55s" }}>
           <Link href="/sign-up" className="group inline-flex items-center gap-2 bg-zinc-900 hover:bg-zinc-800 text-white text-sm font-semibold px-5 py-2.5 rounded-full shadow-lg shadow-zinc-900/10 transition-all">
-            جرّب مجاناً ١٤ يوم
+            جرّب الآن — ١٤ يوم مجاناً
             <ArrowLeft className="w-3.5 h-3.5 transition-transform group-hover:-translate-x-1" />
           </Link>
           <a href="#story" className="inline-flex items-center gap-1.5 text-sm text-zinc-700 hover:text-zinc-900 px-4 py-2.5 transition-colors font-medium">
@@ -148,13 +148,13 @@ function Problem() {
           <div>
             <span className="text-[10px] tracking-[0.3em] uppercase text-zinc-500 font-bold">المشكلة</span>
             <h2 className="mt-3 text-2xl sm:text-3xl font-bold leading-tight tracking-tight">
-              ٢٠٠٠ صورة من حفل واحد.
-              <span className="block text-zinc-400 mt-1">ضيفك يبحث ساعة عن صورة واحدة.</span>
+              ١٠٬٠٠٠ صورة في حفل واحد.
+              <span className="block text-zinc-400 mt-1">ضيفك يبحث ساعات عن صورة واحدة.</span>
             </h2>
           </div>
           <div className="space-y-3 text-sm text-zinc-700 leading-relaxed md:pt-7">
             <p>
-              الـ Google Drive، الـ WhatsApp، الـ Telegram — كل هذه حلول مكسورة. الضيف يضيع، المصور يتعب، والصور تنتهي بدون أن يستفيد أحد منها.
+              Google Drive، WhatsApp، Telegram — كلها حلول مؤقتة. الضيف يضيع، المصوّر يُلاحق بالرسائل، والصور تنتهي في أرشيف لا يفتحه أحد.
             </p>
             <p className="text-zinc-500 text-xs">
               ٧٢٪ من ضيوف الحفلات لا يحصلون على صورهم خلال أسبوع.
@@ -168,10 +168,10 @@ function Problem() {
 
 function Story() {
   const steps = [
-    { num: "١", title: "أنشئ الفعالية", desc: "بنقرتين، أنشئ معرضاً خاصاً واسحب آلاف الصور أو استوردها من Google Drive." },
-    { num: "٢", title: "النظام يفهرس الوجوه", desc: "خلال دقائق، يحلّل النظام كل صورة ويفهرس الوجوه بتقنية AWS Rekognition." },
-    { num: "٣", title: "أرسل الرابط", desc: "شارك رابطاً واحداً عبر WhatsApp أو SMS. كل ضيف يفتحه ويلتقط سيلفي." },
-    { num: "٤", title: "صور كل ضيف، في ثوانٍ", desc: "النظام يطابق الوجه فوراً ويعرض كل صور الضيف للتحميل أو المشاركة." },
+    { num: "١", title: "أنشئ الفعالية بنقرتين", desc: "اسم، تاريخ، وارفع الصور — أو استوردها من Google Drive دفعة واحدة." },
+    { num: "٢", title: "الذكاء الاصطناعي يشتغل", desc: "النظام يفهرس كل وجه في كل صورة. مدعوم بتقنيات AWS و Face++." },
+    { num: "٣", title: "أرسل الرابط للضيوف", desc: "رابط واحد بهوية شركتك، يصل عبر WhatsApp أو SMS أو QR." },
+    { num: "٤", title: "صوره. في ٣ ثوانٍ", desc: "الضيف يلتقط سيلفي، فيستخرج النظام كل صوره من بين الآلاف فوراً." },
   ];
 
   return (
@@ -180,7 +180,7 @@ function Story() {
         <div className="mb-10 max-w-xl">
           <span className="text-[10px] tracking-[0.3em] uppercase text-amber-700 font-bold">القصة</span>
           <h2 className="mt-3 text-2xl sm:text-3xl font-bold leading-tight tracking-tight">
-            أربع خطوات. لا تحتاج خبرة.
+            أربع خطوات. والمستحيل يصير ممكن.
           </h2>
         </div>
 
@@ -211,10 +211,10 @@ function Showcase() {
           <div className="md:col-span-6 order-2 md:order-1">
             <span className="text-[10px] tracking-[0.3em] uppercase text-amber-400 font-bold">من نظر الضيف</span>
             <h2 className="mt-3 text-2xl sm:text-4xl font-bold leading-tight tracking-tight mb-4">
-              صورة واحدة، صوره كلها.
+              سيلفي واحد. ذاكرة كاملة.
             </h2>
             <p className="text-sm text-zinc-400 leading-relaxed mb-5 max-w-md">
-              الضيف يفتح الرابط من جواله، يلتقط سيلفي، وفي ثوانٍ يشاهد كل صور حضوره. بدون تطبيق، بدون تسجيل.
+              يفتح الرابط من جواله، يلتقط سيلفي، فيظهر له كل ما التُقط له من صور — جاهز للتنزيل والمشاركة. لا تطبيق، لا تسجيل.
             </p>
             <div className="flex flex-wrap items-center gap-3 text-xs text-zinc-400">
               <span className="flex items-center gap-1"><Check className="w-3 h-3 text-amber-400" strokeWidth={3} /> بدون تطبيق</span>
@@ -261,12 +261,12 @@ function Showcase() {
 
 function Features() {
   const features = [
-    { icon: ScanFace, tag: "AI", title: "بحث بالوجه (دقة 98٪)", desc: "مدعوم بـ AWS Rekognition، بنفس جودة Snapchat وPinterest." },
-    { icon: Globe, tag: "White-label", title: "هوية بيضاء كاملة", desc: "دومينك، شعارك، ألوانك. الضيف لا يرى منصتنا." },
-    { icon: Cloud, tag: "تكامل", title: "استيراد من السحابة", desc: "ربط Google Drive، Dropbox، أو OneDrive في نقرتين." },
-    { icon: Lock, tag: "أمان", title: "تشفير وعزل تام", desc: "AES-256، نسخ احتياطي يومي، عزل بين العملاء." },
-    { icon: MessageCircle, tag: "WhatsApp", title: "مشاركة فورية", desc: "رابط واحد لكل فعالية، يُرسَل بنقرة عبر WhatsApp." },
-    { icon: BarChart3, tag: "تقارير", title: "إحصائيات لحظية", desc: "من فتح المعرض، الأكثر تنزيلاً، معدل البحث." },
+    { icon: ScanFace, tag: "AI", title: "محرّك التعرّف بالذكاء الاصطناعي", desc: "بنفس تقنية Snapchat وPinterest. يميّز الوجه من بين الآلاف بدقة ٩٨٪." },
+    { icon: Globe, tag: "White-label", title: "هويتك أنت، لا هويتنا", desc: "دومينك، شعارك، ألوانك. الضيف يدخل عالم شركتك فقط." },
+    { icon: Cloud, tag: "تكامل", title: "استيراد جماعي من السحابة", desc: "آلاف الصور من Google Drive أو Dropbox، بنقرة واحدة." },
+    { icon: Lock, tag: "أمان", title: "حماية بمعايير المصارف", desc: "تشفير AES-256، نسخ احتياطي يومي، وعزل تام بين العملاء." },
+    { icon: MessageCircle, tag: "WhatsApp", title: "أرسل الرابط بنقرة", desc: "رابط واحد لكل فعالية، يصل لكل ضيوفك في ثوانٍ." },
+    { icon: BarChart3, tag: "تقارير", title: "نبض فعالياتك في الوقت الحقيقي", desc: "من فتح المعرض، الأكثر تنزيلاً، معدلات البحث — كل شيء." },
   ];
   return (
     <section id="features" className="py-14 sm:py-20" dir="rtl">
@@ -299,14 +299,14 @@ function Features() {
 
 function Pricing() {
   const plans = [
-    { name: "أساسي", price: "29", desc: "للمصورين المستقلين",
-      features: ["١٠ فعاليات/شهر", "٥٠٠ صورة/فعالية", "بحث وجه (٩٣٪)", "دومين فرعي", "٥GB تخزين"],
+    { name: "أساسي", price: "٩٩", desc: "للمصوّر المستقل",
+      features: ["١٠ فعاليات/شهر", "٥٠٠ صورة/فعالية", "بحث بالوجه (٩٣٪)", "دومين فرعي", "٥ GB تخزين"],
       highlight: false },
-    { name: "احترافي", price: "79", desc: "للاستوديوهات",
-      features: ["٥٠ فعالية/شهر", "١٥٠٠ صورة/فعالية", "بحث وجه فائق (٩٨٪)", "دومين مخصص", "WhatsApp", "٥ أعضاء", "٥٠GB تخزين"],
+    { name: "احترافي", price: "٢٩٩", desc: "للاستوديوهات",
+      features: ["٥٠ فعالية/شهر", "١٥٠٠ صورة/فعالية", "بحث فائق (٩٨٪)", "دومين مخصص", "WhatsApp", "٥ أعضاء", "٥٠ GB تخزين"],
       highlight: true },
-    { name: "وكالة", price: "199", desc: "للوكالات الكبرى",
-      features: ["فعاليات غير محدودة", "صور غير محدودة", "White Label كامل", "بحث فائق (٩٨٪)", "API", "تخزين خاص"],
+    { name: "وكالة", price: "٧٩٩", desc: "للوكالات الكبرى",
+      features: ["فعاليات غير محدودة", "صور غير محدودة", "هوية بيضاء كاملة", "بحث فائق (٩٨٪)", "API مفتوح", "تخزين خاص"],
       highlight: false },
   ];
   return (
@@ -332,8 +332,9 @@ function Pricing() {
               <p className={`text-[11px] uppercase tracking-widest font-bold mb-1 ${p.highlight ? "text-amber-400" : "text-amber-700"}`}>{p.name}</p>
               <p className={`text-xs mb-4 ${p.highlight ? "text-zinc-400" : "text-zinc-500"}`}>{p.desc}</p>
               <p className={`font-bold tracking-tight mb-5 ${p.highlight ? "text-white" : "text-zinc-900"}`}>
-                <span className="text-3xl sm:text-4xl">${p.price}</span>
-                <span className={`text-xs font-normal ${p.highlight ? "text-zinc-500" : "text-zinc-400"}`}>/شهر</span>
+                <span className="text-3xl sm:text-4xl">{p.price}</span>
+                <span className={`text-xs font-bold mr-1 ${p.highlight ? "text-amber-400" : "text-amber-700"}`}>ر.س</span>
+                <span className={`text-xs font-normal ${p.highlight ? "text-zinc-500" : "text-zinc-400"}`}> /شهر</span>
               </p>
               <ul className="space-y-2 mb-5">
                 {p.features.map((f) => (
@@ -356,9 +357,9 @@ function Pricing() {
 
 function Voices() {
   const quotes = [
-    { author: "فاطمة الحربي", role: "استوديو لمسة", text: "وفّر علي ٨٠٪ من وقت التسليم. الضيوف صاروا يشكرونني بدل أن يلاحقوني." },
-    { author: "خالد القحطاني", role: "Memory Lens", text: "الدقة مذهلة. حتى في صور قديمة وزوايا غريبة، يلقى الصور." },
-    { author: "محمد العتيبي", role: "استوديو النور", text: "الدعم سريع جداً والمنصة بالعربي بشكل صحيح. أخيراً منتج عربي بمستوى عالمي." },
+    { author: "فاطمة الحربي", role: "استوديو لمسة", text: "وفّر علي ٨٠٪ من وقت التسليم. الضيوف صاروا يشكرونني بدل أن يلاحقوني برسائل." },
+    { author: "خالد القحطاني", role: "Memory Lens", text: "في حفل لـ ٣٠٠ شخص، استلم كل ضيف صوره خلال ساعة. ما عشتها قبل." },
+    { author: "محمد العتيبي", role: "استوديو النور", text: "أخيراً منصة عربية بمستوى عالمي. الدعم سريع، والتجربة تفوق التوقعات." },
   ];
   return (
     <section className="py-14 sm:py-20" dir="rtl">
@@ -438,12 +439,12 @@ function Closing() {
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-amber-200/40 rounded-full blur-3xl drift-slow" />
       </div>
       <div className="relative max-w-2xl mx-auto px-5 sm:px-6 text-center">
-        <span className="text-[10px] tracking-[0.3em] uppercase text-amber-700 font-bold">ابدأ اليوم</span>
+        <span className="text-[10px] tracking-[0.3em] uppercase text-amber-700 font-bold">حان وقت التحوّل</span>
         <h2 className="mt-3 text-3xl sm:text-5xl font-bold leading-tight tracking-tight mb-4">
-          فعالية واحدة. ستفهم لماذا.
+          فعالية واحدة، وستفهم لماذا الكل تحوّل إلينا.
         </h2>
         <p className="text-sm sm:text-base text-zinc-600 mb-7 max-w-md mx-auto leading-relaxed">
-          ١٤ يوم تجربة مجانية. بدون بطاقة ائتمان. إلغاء فوري.
+          ١٤ يوم تجربة مجانية كاملة. بدون بطاقة ائتمان. ألغِ في أي لحظة.
         </p>
         <div className="flex flex-wrap justify-center gap-2">
           <Link href="/sign-up" className="group inline-flex items-center gap-2 bg-zinc-900 hover:bg-zinc-800 text-white text-sm font-bold px-6 py-3 rounded-full transition-all">
@@ -472,7 +473,7 @@ function Footer() {
               <span className="text-xs font-bold">EventFace</span>
             </Link>
             <p className="text-[10px] text-zinc-500 leading-relaxed">
-              منصة معارض الفعاليات الذكية. صُنعت بحب في السعودية.
+              منصة معارض الفعاليات الذكية. صُنعت بحنكة في السعودية.
             </p>
           </div>
           <FCol title="المنتج" links={[["المزايا", "#features"], ["كيف يعمل", "#story"], ["الأسعار", "#pricing"]]} />
@@ -481,7 +482,7 @@ function Footer() {
         </div>
         <div className="pt-5 border-t border-zinc-900/5 flex flex-col sm:flex-row items-center justify-between gap-2 text-[10px] text-zinc-500">
           <p>© ٢٠٢٦ EventFace. كل الحقوق محفوظة.</p>
-          <p className="flex items-center gap-1">صُنع بـ <Heart className="w-2.5 h-2.5 fill-amber-500 text-amber-500" /> في السعودية</p>
+          <p className="flex items-center gap-1">صُنع بـ <Brain className="w-3 h-3 text-amber-600" /> في السعودية</p>
         </div>
       </div>
     </footer>
