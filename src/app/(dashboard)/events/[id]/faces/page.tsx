@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowRight, ScanFace } from "lucide-react";
 import FaceIndexingPanel from "@/components/dashboard/FaceIndexingPanel";
-import { isRekognitionConfigured } from "@/lib/rekognition";
+import { isFaceRecognitionConfigured } from "@/lib/face-recognition";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -27,7 +27,7 @@ export default async function EventFacesPage({ params }: Props) {
       where: { eventId: id, tenantId: tenantUser.tenant.id },
       _count: { status: true },
     }),
-    isRekognitionConfigured(),
+    isFaceRecognitionConfigured(),
   ]);
 
   const countByStatus = Object.fromEntries(
