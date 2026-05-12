@@ -149,13 +149,13 @@ export async function POST(req: Request) {
       searchedFaceConfidence: Math.round(searchedFaceConfidence),
     });
   } catch (err: any) {
+    console.error("[face-search]", err?.message ?? err);
     if (err instanceof SearchError) {
       return NextResponse.json({ error: err.message, code: err.code }, { status: 422 });
     }
-    console.error("[face-search]", err);
     return NextResponse.json(
-      { error: "حدث خطأ أثناء البحث، حاول مرة أخرى" },
-      { status: 500 }
+      { error: err?.message || "حدث خطأ أثناء البحث، حاول مرة أخرى" },
+      { status: 422 }
     );
   }
 }

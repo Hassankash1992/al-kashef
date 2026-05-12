@@ -32,18 +32,31 @@ async function fppRequest(endpoint: string, params: Record<string, any>, fileBuf
   const creds = getCreds();
   if (!creds) throw new Error("Face++ not configured");
 
-  const formData = new FormData();
-  formData.append("api_key", creds.apiKey);
-  formData.append("api_secret", creds.apiSecret);
+  // Use URL-encoded body with image_base64 — more reliable in serverless than multipart
+  const body = new URLSearchParams();
+  body.append("api_key", creds.apiKey);
+  body.append("api_secret", creds.apiSecret);
   for (const [k, v] of Object.entries(params)) {
-    if (v !== undefined && v !== null) formData.append(k, String(v));
+    if (v !== undefined && v !== null) body.append(k, String(v));
   }
   if (fileBuffer) {
-    formData.append("image_file", new Blob([new Uint8Array(fileBuffer)]), "image.jpg");
+    body.append("image_base64", fileBuffer.toString("base64"));
   }
 
-  const res = await fetch(`${FPP_BASE}${endpoint}`, { method: "POST", body: formData });
-  const data = await res.json();
+  const res = await fetch(`${FPP_BASE}${endpoint}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: body.toString(),
+  });
+
+  const text = await res.text();
+  let data: any;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    throw new Error(`Face++ returned invalid response (${res.status}): ${text.slice(0, 200)}`);
+  }
+
   if (data.error_message) {
     throw new Error(`Face++ error: ${data.error_message}`);
   }
@@ -128,6 +141,8 @@ export async function searchFacesByImage(
     }, selfieBuffer);
   } catch (err: any) {
     const msg = err?.message ?? "";
+    console.error("[Face++ search]", msg);
+
     // Faceset doesn't exist or empty → no photos indexed → return empty
     if (msg.includes("INVALID_OUTER_ID") || msg.includes("EMPTY_FACESET") || msg.includes("FACESET_EMPTY")) {
       return { results: [], searchedFaceConfidence: 0 };
@@ -135,7 +150,17 @@ export async function searchFacesByImage(
     if (msg.includes("NO_FACE_FOUND")) {
       throw new SearchError("لم نعثر على وجه في صورتك", "NO_FACE_IN_SELFIE");
     }
-    throw err;
+    if (msg.includes("AUTHENTICATION") || msg.includes("AUTHORIZATION") || msg.includes("INVALID_API_KEY")) {
+      throw new SearchError("خطأ في إعدادات الخدمة، تواصل مع الدعم", "AUTH_ERROR");
+    }
+    if (msg.includes("CONCURRENCY_LIMIT")) {
+      throw new SearchError("الخدمة مزدحمة، حاول بعد لحظات", "RATE_LIMIT");
+    }
+    if (msg.includes("IMAGE_FILE_TOO_LARGE") || msg.includes("INVALID_IMAGE")) {
+      throw new SearchError("الصورة غير صالحة، جرّب صورة أخرى", "BAD_IMAGE");
+    }
+    // Unknown error — log and return empty (don't 500)
+    return { results: [], searchedFaceConfidence: 0 };
   }
 
   const searchedFaceConfidence = data.faces?.[0]?.confidence ?? 0;
