@@ -40,11 +40,27 @@ export async function isFaceppConfigured(): Promise<boolean> {
   return getCreds() !== null;
 }
 
+// Global mutex to enforce single concurrent Face++ call (free trial limit)
+let fppLock: Promise<any> = Promise.resolve();
+
 async function fppRequest(endpoint: string, params: Record<string, any>, fileBuffer?: Buffer): Promise<any> {
+  // Chain after previous request to enforce serial execution
+  const release = fppLock;
+  let resolveNext: () => void = () => {};
+  fppLock = new Promise<void>((r) => { resolveNext = r; });
+
+  try {
+    await release;
+    return await fppRequestInner(endpoint, params, fileBuffer);
+  } finally {
+    resolveNext();
+  }
+}
+
+async function fppRequestInner(endpoint: string, params: Record<string, any>, fileBuffer?: Buffer, retryCount = 0): Promise<any> {
   const creds = getCreds();
   if (!creds) throw new Error("Face++ not configured");
 
-  // Use URL-encoded body with image_base64 — more reliable in serverless than multipart
   const body = new URLSearchParams();
   body.append("api_key", creds.apiKey);
   body.append("api_secret", creds.apiSecret);
@@ -52,7 +68,6 @@ async function fppRequest(endpoint: string, params: Record<string, any>, fileBuf
     if (v !== undefined && v !== null) body.append(k, String(v));
   }
   if (fileBuffer) {
-    // Always resize before sending — Face++ rejects images > 2MB
     const resized = await prepareImageForFpp(fileBuffer);
     body.append("image_base64", resized.toString("base64"));
   }
@@ -71,9 +86,19 @@ async function fppRequest(endpoint: string, params: Record<string, any>, fileBuf
     throw new Error(`Face++ returned invalid response (${res.status}): ${text.slice(0, 200)}`);
   }
 
+  // Auto-retry on concurrency/rate limit (up to 4 times with exponential backoff)
+  if (data.error_message === "CONCURRENCY_LIMIT_EXCEEDED" && retryCount < 4) {
+    const delay = 1000 * Math.pow(2, retryCount); // 1s, 2s, 4s, 8s
+    await new Promise((r) => setTimeout(r, delay));
+    return fppRequestInner(endpoint, params, fileBuffer, retryCount + 1);
+  }
+
   if (data.error_message) {
     throw new Error(`Face++ error: ${data.error_message}`);
   }
+
+  // Small delay after EVERY successful call to space requests (Face++ free trial = ~1 RPS)
+  await new Promise((r) => setTimeout(r, 250));
   return data;
 }
 

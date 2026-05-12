@@ -31,21 +31,39 @@ export default function FaceIndexingPanel({ eventId, stats, rekognitionConfigure
     setDone(false);
     setError("");
     try {
-      // Loop in batches until done
       let totalProcessed = 0;
       let totalFailed = 0;
+      let lastRemaining = -1;
+      let stuckCount = 0;
       let safetyLoop = 0;
-      while (safetyLoop < 50) {
+
+      while (safetyLoop < 30) {
         safetyLoop++;
         const res = await fetch(`/api/events/${eventId}/reindex`, { method: "POST" });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "حدث خطأ");
         totalProcessed += data.processed ?? 0;
         totalFailed += data.failed ?? 0;
+
         if (data.done) break;
+
+        // Detect stuck loop: remaining count not decreasing
+        if (data.remaining === lastRemaining) {
+          stuckCount++;
+          if (stuckCount >= 2) {
+            // Stop trying — show errors
+            const errMsg = data.errors?.[0] ?? "فشلت الفهرسة لجميع الصور";
+            throw new Error(`توقفت الفهرسة: ${errMsg}`);
+          }
+        } else {
+          stuckCount = 0;
+          lastRemaining = data.remaining;
+        }
+
+        // Wait between batches (Face++ rate limit)
+        await new Promise((r) => setTimeout(r, 1000));
       }
       setDone(true);
-      // Refresh page to show updated stats
       setTimeout(() => window.location.reload(), 1500);
     } catch (err: any) {
       setError(err.message);
